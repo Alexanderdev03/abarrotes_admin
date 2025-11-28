@@ -149,6 +149,7 @@ function App() {
   const handleCategoryClick = (categoryName) => {
     setSelectedCategory(categoryName);
     setSearchQuery('');
+    setActiveTab('home');
   };
 
   const clearFilters = () => {
