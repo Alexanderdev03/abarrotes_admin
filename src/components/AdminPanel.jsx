@@ -9,13 +9,11 @@ export function AdminPanel() {
         weeklySales: 0,
         monthlySales: 0,
         totalOrders: 0,
-        dailySales: 0,
-        weeklySales: 0,
-        monthlySales: 0,
-        totalOrders: 0,
         totalCustomers: 0,
         averageTicket: 0,
-        lowStockCount: 0
+        lowStockCount: 0,
+        last7Days: [],
+        zeroMovement: []
     });
     const [recentOrders, setRecentOrders] = useState([]);
     const [topProducts, setTopProducts] = useState([]);
@@ -42,13 +40,29 @@ export function AdminPanel() {
         let monthly = 0;
         const productSales = {};
 
+        // Last 7 Days Chart Data
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(now);
+            d.setDate(d.getDate() - (6 - i));
+            return {
+                date: d.toISOString().split('T')[0],
+                label: d.toLocaleDateString('es-ES', { weekday: 'short' }),
+                amount: 0
+            };
+        });
+
         orders.forEach(order => {
-            const orderDate = new Date(order.date); // order.date is already a Date object or ISO string from service
+            const orderDate = new Date(order.date);
             const orderTotal = parseFloat(order.total) || 0;
+            const orderDateStr = orderDate.toISOString().split('T')[0];
 
             if (orderDate >= startOfDay) daily += orderTotal;
             if (orderDate >= startOfWeek) weekly += orderTotal;
             if (orderDate >= startOfMonth) monthly += orderTotal;
+
+            // Chart Data
+            const dayStat = last7Days.find(d => d.date === orderDateStr);
+            if (dayStat) dayStat.amount += orderTotal;
 
             // Count products
             order.items.forEach(item => {
@@ -63,14 +77,15 @@ export function AdminPanel() {
             .sort((a, b) => b.count - a.count)
             .slice(0, 5);
 
+        // Zero Movement Products
+        const zeroMovement = products.filter(p => !productSales[p.name]);
+
         // Low Stock
         const lowStock = products.filter(p => {
-            // Assuming stock is a number or string like "5" or "In Stock"
-            // If it's "In Stock", we ignore. If it's a number < 10, we flag.
             if (typeof p.stock === 'string' && !Number.isNaN(Number(p.stock))) {
                 return Number(p.stock) < 10;
             }
-            return false;
+            return (p.stock || 0) < 10;
         });
 
         setStats({
@@ -80,7 +95,9 @@ export function AdminPanel() {
             totalOrders: orders.length,
             totalCustomers: customers.length || 1,
             averageTicket: orders.length > 0 ? (orders.reduce((acc, curr) => acc + (parseFloat(curr.total) || 0), 0) / orders.length) : 0,
-            lowStockCount: lowStock.length
+            lowStockCount: lowStock.length,
+            last7Days,
+            zeroMovement
         });
 
         setRecentOrders(orders.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5));
@@ -162,6 +179,49 @@ export function AdminPanel() {
                     </div>
                 </div>
             )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+                {/* Sales Chart */}
+                <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.1rem' }}>Ventas de los Últimos 7 Días</h3>
+                    <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #e5e7eb' }}>
+                        {stats.last7Days.map((day, index) => (
+                            <div key={index} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{
+                                    width: '100%',
+                                    height: `${(day.amount / (Math.max(...stats.last7Days.map(d => d.amount)) || 1)) * 150}px`,
+                                    backgroundColor: '#3b82f6',
+                                    borderRadius: '4px 4px 0 0',
+                                    transition: 'height 0.5s ease',
+                                    minHeight: '4px'
+                                }}></div>
+                                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{day.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Zero Movement Products */}
+                <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: '#ef4444' }}>Productos Sin Movimiento</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '250px', overflowY: 'auto' }}>
+                        {stats.zeroMovement.slice(0, 10).map((product, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', backgroundColor: '#fef2f2', borderRadius: '8px' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }}></div>
+                                <span style={{ fontSize: '0.9rem', color: '#7f1d1d' }}>{product.name}</span>
+                            </div>
+                        ))}
+                        {stats.zeroMovement.length === 0 && (
+                            <div style={{ textAlign: 'center', color: '#9ca3af', padding: '1rem' }}>¡Todo se está vendiendo!</div>
+                        )}
+                        {stats.zeroMovement.length > 10 && (
+                            <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                                +{stats.zeroMovement.length - 10} productos más
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
                 {/* Recent Orders */}

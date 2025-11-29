@@ -23,6 +23,7 @@ import { AdminContent } from './components/admin/AdminContent';
 import { AdminSettings } from './components/admin/AdminSettings';
 import { AdminPanel } from './components/AdminPanel';
 import { AdminCombos } from './components/admin/AdminCombos';
+import { AdminCategories } from './components/admin/AdminCategories';
 import { AdminPOS } from './components/admin/AdminPOS';
 import { Account } from './components/Account';
 import { ProductSkeleton } from './components/ProductSkeleton';
@@ -488,6 +489,34 @@ function App() {
     }
   }
 
+  // History API handling for Product Modal
+  const handleOpenProduct = (product) => {
+    setSelectedProduct(product);
+    window.history.pushState({ modalOpen: true }, '', '#producto');
+  };
+
+  const handleCloseProduct = () => {
+    // Check if we have a history state to go back to, otherwise just close
+    if (window.history.state && window.history.state.modalOpen) {
+      window.history.back();
+    } else {
+      setSelectedProduct(null);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = (event) => {
+      // If we go back and the modal is open, close it
+      setSelectedProduct(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   if (!isDataLoaded) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Cargando datos...</div>;
   }
@@ -511,6 +540,7 @@ function App() {
         {adminView === 'content' && <AdminContent />}
         {adminView === 'settings' && <AdminSettings />}
         {adminView === 'combos' && <AdminCombos />}
+        {adminView === 'categories' && <AdminCategories />}
         {adminView === 'pos' && <AdminPOS />}
 
         {/* Placeholder for other views */}
@@ -535,7 +565,7 @@ function App() {
         userName={user ? user.name : null}
         onOpenScanner={() => setIsScanning(true)}
         products={products}
-        onProductSelect={setSelectedProduct}
+        onProductSelect={handleOpenProduct}
       />
 
       <main style={{ padding: '1rem', paddingBottom: '80px', paddingTop: '90px', flex: 1 }}>
@@ -645,7 +675,7 @@ function App() {
                           onAdd={addToCart}
                           isFavorite={favorites.some(fav => fav.id === product.id)}
                           onToggleFavorite={() => toggleFavorite(product)}
-                          onClick={() => setSelectedProduct(product)}
+                          onClick={() => handleOpenProduct(product)}
                         />
                       </div>
                     ))}
@@ -718,7 +748,7 @@ function App() {
                         onAdd={addToCart}
                         isFavorite={favorites.some(fav => fav.id === product.id)}
                         onToggleFavorite={() => toggleFavorite(product)}
-                        onClick={() => setSelectedProduct(product)}
+                        onClick={() => handleOpenProduct(product)}
                       />
                     ))
                   )}
@@ -1115,7 +1145,7 @@ function App() {
             }}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
-            onProductSelect={setSelectedProduct}
+            onProductSelect={handleOpenProduct}
           />
         )}
         {activeTab === 'points' && (
@@ -1243,6 +1273,7 @@ function App() {
           <AdminLayout activeView={adminView} onViewChange={setAdminView} onLogout={() => setActiveTab('home')}>
             {adminView === 'dashboard' && <AdminPanel />}
             {adminView === 'products' && <AdminProducts />}
+            {adminView === 'categories' && <AdminCategories />}
             {adminView === 'orders' && <AdminOrders />}
             {adminView === 'customers' && <AdminCustomers />}
             {adminView === 'promos' && <AdminPromotions />}
@@ -1262,11 +1293,11 @@ function App() {
           <ProductDetails
             product={selectedProduct}
             products={products}
-            onClose={() => setSelectedProduct(null)}
+            onClose={handleCloseProduct}
             onAdd={addToCart}
             isFavorite={favorites.some(fav => fav.id === selectedProduct.id)}
             onToggleFavorite={() => toggleFavorite(selectedProduct)}
-            onProductSelect={setSelectedProduct}
+            onProductSelect={handleOpenProduct}
           />
         )
       }

@@ -7,6 +7,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
         price: '',
         originalPrice: '',
         category: '',
+        subcategory: '',
         image: '',
         description: '',
         stock: 'In Stock',
@@ -20,6 +21,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                 price: product.price || '',
                 originalPrice: product.originalPrice || '',
                 category: product.category || '',
+                subcategory: product.subcategory || '',
                 image: product.image || '',
                 description: product.description || '',
                 stock: product.stock || 'In Stock',
@@ -108,7 +110,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                             >
                                 <option value="">Seleccionar...</option>
                                 {categories.map(cat => (
-                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    <option key={cat.id} value={cat.name}>{cat.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -122,6 +124,36 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                                 style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
                             />
                         </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Subcategoría</label>
+                        <select
+                            value={formData.subcategory}
+                            onChange={e => setFormData({ ...formData, subcategory: e.target.value })}
+                            disabled={!formData.category}
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: !formData.category ? '#f3f4f6' : 'white' }}
+                        >
+                            <option value="">Seleccionar...</option>
+                            {formData.category && categories.find(c => c.name === formData.category || c.id === formData.category)?.subcategories?.map(sub => (
+                                <option key={sub} value={sub}>{sub}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Stock Disponible</label>
+                        <input
+                            type="number"
+                            min="0"
+                            value={formData.stock === 'In Stock' ? '' : formData.stock}
+                            onChange={e => setFormData({ ...formData, stock: e.target.value ? parseInt(e.target.value) : 0 })}
+                            placeholder="Cantidad en inventario (ej. 50)"
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
+                        />
+                        <span style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.25rem', display: 'block' }}>
+                            Dejar vacío o en 0 para marcar como "Agotado" si no es 'In Stock'.
+                        </span>
                     </div>
 
                     <div style={{ marginBottom: '1rem' }}>

@@ -26,8 +26,52 @@ export const ProductService = {
 
   getAllCategories: async () => {
     if (!USE_FIREBASE) return localCategories;
-    // For now, categories can stay local or be fetched similarly
-    return localCategories;
+    try {
+      const querySnapshot = await getDocs(collection(db, "categories"));
+      if (querySnapshot.empty) {
+        // Fallback to local if empty (or seed it)
+        return localCategories;
+      }
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      return localCategories;
+    }
+  },
+
+  addCategory: async (categoryData) => {
+    try {
+      const docRef = await addDoc(collection(db, "categories"), categoryData);
+      return { id: docRef.id, ...categoryData };
+    } catch (error) {
+      console.error("Error adding category:", error);
+      throw error;
+    }
+  },
+
+  updateCategory: async (id, categoryData) => {
+    try {
+      const categoryRef = doc(db, "categories", String(id));
+      await updateDoc(categoryRef, categoryData);
+      return { id, ...categoryData };
+    } catch (error) {
+      console.error("Error updating category:", error);
+      throw error;
+    }
+  },
+
+  deleteCategory: async (id) => {
+    try {
+      const categoryRef = doc(db, "categories", String(id));
+      await deleteDoc(categoryRef);
+      return true;
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      throw error;
+    }
   },
 
   // CRUD Operations

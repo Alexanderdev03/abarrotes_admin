@@ -98,46 +98,7 @@ export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner, p
                     <Camera size={20} color="#666" />
                 </button>
 
-                {/* Suggestions Dropdown */}
-                {showSuggestions && suggestions.length > 0 && (
-                    <div style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        marginTop: '0.5rem',
-                        backgroundColor: 'white',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                        overflow: 'hidden',
-                        zIndex: 1000
-                    }}>
-                        {suggestions.map(product => (
-                            <div
-                                key={product.id}
-                                onClick={() => {
-                                    onProductSelect(product);
-                                    setSearchQuery('');
-                                    setShowSuggestions(false);
-                                }}
-                                style={{
-                                    padding: '0.75rem 1rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.75rem',
-                                    borderBottom: '1px solid #f0f0f0',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                <img src={product.image} alt="" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
-                                <div>
-                                    <div style={{ fontSize: '0.9rem', fontWeight: '500', color: '#333' }}>{product.name}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 'bold' }}>${product.price.toFixed(2)}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+
             </div>
         </header>
     );

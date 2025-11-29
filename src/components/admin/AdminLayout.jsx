@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     LayoutDashboard, Package, ShoppingBag, Users, Tag,
-    Image, Settings, LogOut, Menu, X, Layers, Monitor
+    Image, Settings, LogOut, Menu, X, Layers, Monitor, List
 } from 'lucide-react';
 
 export function AdminLayout({ children, activeView, onViewChange, onLogout }) {
@@ -11,6 +11,7 @@ export function AdminLayout({ children, activeView, onViewChange, onLogout }) {
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { id: 'pos', icon: Monitor, label: 'Caja (POS)' },
         { id: 'products', icon: Package, label: 'Productos' },
+        { id: 'categories', icon: List, label: 'Categorías' },
         { id: 'orders', icon: ShoppingBag, label: 'Pedidos' },
         { id: 'customers', icon: Users, label: 'Clientes' },
         { id: 'promos', icon: Tag, label: 'Promociones' },
