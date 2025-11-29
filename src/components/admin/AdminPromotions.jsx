@@ -6,7 +6,7 @@ export function AdminPromotions() {
     const [products, setProducts] = useState([]);
     const [flashSaleId, setFlashSaleId] = useState(localStorage.getItem('flashSaleId') || '');
     const [coupons, setCoupons] = useState(() => JSON.parse(localStorage.getItem('adminCoupons') || '[]'));
-    const [newCoupon, setNewCoupon] = useState({ code: '', discount: '' });
+    const [newCoupon, setNewCoupon] = useState({ code: '', discount: '', points: '' });
 
     useEffect(() => {
         ProductService.getAllProducts().then(setProducts);
@@ -23,10 +23,15 @@ export function AdminPromotions() {
         e.preventDefault();
         if (!newCoupon.code || !newCoupon.discount) return;
 
-        const updated = [...coupons, { ...newCoupon, id: Date.now(), discount: Number(newCoupon.discount) }];
+        const updated = [...coupons, {
+            ...newCoupon,
+            id: Date.now(),
+            discount: Number(newCoupon.discount),
+            points: Number(newCoupon.points) || 0
+        }];
         setCoupons(updated);
         localStorage.setItem('adminCoupons', JSON.stringify(updated));
-        setNewCoupon({ code: '', discount: '' });
+        setNewCoupon({ code: '', discount: '', points: '' });
     };
 
     const handleDeleteCoupon = (id) => {
@@ -100,6 +105,16 @@ export function AdminPromotions() {
                             style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db' }}
                         />
                     </div>
+                    <div style={{ width: '150px' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.5rem' }}>Costo en Puntos</label>
+                        <input
+                            type="number"
+                            placeholder="0"
+                            value={newCoupon.points}
+                            onChange={e => setNewCoupon({ ...newCoupon, points: e.target.value })}
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                        />
+                    </div>
                     <button
                         type="submit"
                         style={{
@@ -120,6 +135,7 @@ export function AdminPromotions() {
                             <tr>
                                 <th style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#6b7280' }}>CÓDIGO</th>
                                 <th style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#6b7280' }}>DESCUENTO</th>
+                                <th style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#6b7280' }}>COSTO (PTS)</th>
                                 <th style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#6b7280', textAlign: 'right' }}>ACCIONES</th>
                             </tr>
                         </thead>
@@ -135,6 +151,7 @@ export function AdminPromotions() {
                                     <tr key={coupon.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                                         <td style={{ padding: '1rem', fontWeight: '600', color: '#111827' }}>{coupon.code}</td>
                                         <td style={{ padding: '1rem', color: '#059669', fontWeight: 'bold' }}>${coupon.discount.toFixed(2)}</td>
+                                        <td style={{ padding: '1rem', color: '#ea580c', fontWeight: 'bold' }}>{coupon.points || 0} pts</td>
                                         <td style={{ padding: '1rem', textAlign: 'right' }}>
                                             <button
                                                 onClick={() => handleDeleteCoupon(coupon.id)}

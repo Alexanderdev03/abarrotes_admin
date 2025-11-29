@@ -5,10 +5,12 @@ export function ProductForm({ product, onClose, onSave, categories }) {
     const [formData, setFormData] = useState({
         name: '',
         price: '',
+        originalPrice: '',
         category: '',
         image: '',
         description: '',
-        stock: 'In Stock' // Simple string for now
+        stock: 'In Stock',
+        points: ''
     });
 
     useEffect(() => {
@@ -16,10 +18,12 @@ export function ProductForm({ product, onClose, onSave, categories }) {
             setFormData({
                 name: product.name || '',
                 price: product.price || '',
+                originalPrice: product.originalPrice || '',
                 category: product.category || '',
                 image: product.image || '',
                 description: product.description || '',
-                stock: product.stock || 'In Stock'
+                stock: product.stock || 'In Stock',
+                points: product.points || ''
             });
         }
     }, [product]);
@@ -28,7 +32,10 @@ export function ProductForm({ product, onClose, onSave, categories }) {
         e.preventDefault();
         onSave({
             ...formData,
-            price: parseFloat(formData.price)
+            ...formData,
+            price: parseFloat(formData.price),
+            originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
+            points: formData.points ? parseInt(formData.points) : 0
         });
     };
 
@@ -65,7 +72,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
 
                     <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                         <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Precio</label>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Precio Actual ($)</label>
                             <input
                                 type="number"
                                 step="0.01"
@@ -75,6 +82,22 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                                 style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
                             />
                         </div>
+                        <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                                Precio Original ($) <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 'normal' }}>(Opcional, para ofertas)</span>
+                            </label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={formData.originalPrice}
+                                onChange={e => setFormData({ ...formData, originalPrice: e.target.value })}
+                                placeholder="Ej. 50.00"
+                                style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                         <div style={{ flex: 1 }}>
                             <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Categoría</label>
                             <select
@@ -88,6 +111,16 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                                 ))}
                             </select>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Puntos de Recompensa</label>
+                            <input
+                                type="number"
+                                value={formData.points}
+                                onChange={e => setFormData({ ...formData, points: e.target.value })}
+                                placeholder="Ej. 10"
+                                style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
+                            />
                         </div>
                     </div>
 

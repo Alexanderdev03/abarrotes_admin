@@ -13,7 +13,7 @@ import { Flyer } from './components/Flyer';
 import { StoreMap } from './components/StoreMap';
 import { FlashSale } from './components/FlashSale';
 import { ComboSection } from './components/ComboSection';
-import { ScratchGame } from './components/ScratchGame';
+
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminProducts } from './components/admin/AdminProducts';
 import { AdminOrders } from './components/admin/AdminOrders';
@@ -22,8 +22,13 @@ import { AdminPromotions } from './components/admin/AdminPromotions';
 import { AdminContent } from './components/admin/AdminContent';
 import { AdminSettings } from './components/admin/AdminSettings';
 import { AdminPanel } from './components/AdminPanel';
+import { AdminCombos } from './components/admin/AdminCombos';
+import { AdminPOS } from './components/admin/AdminPOS';
+import { Account } from './components/Account';
 import { ProductSkeleton } from './components/ProductSkeleton';
 import { ProductService } from './services/products';
+import { OrderService } from './services/orders';
+import { CombosGrid } from './components/CombosGrid';
 
 const iconMap = {
   ShoppingBasket, Apple, Milk, SprayCan, Dog, Pill, Croissant, Baby
@@ -80,6 +85,10 @@ function App() {
     const saved = localStorage.getItem('orders');
     return saved ? JSON.parse(saved) : [];
   });
+  const [savedLists, setSavedLists] = useState(() => {
+    const saved = localStorage.getItem('savedLists');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showCheckout, setShowCheckout] = useState(false);
   const [flyingItem, setFlyingItem] = useState(null);
   const [sortOrder, setSortOrder] = useState(null); // null, 'asc', 'desc'
@@ -89,7 +98,8 @@ function App() {
   const [pointsToUse, setPointsToUse] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20); // Initial load count
-  const [showScratchGame, setShowScratchGame] = useState(false);
+  const [isSavingList, setIsSavingList] = useState(false);
+  const [newListName, setNewListName] = useState('');
 
   // Reload data when switching to home tab to ensure freshness
   useEffect(() => {
@@ -98,34 +108,7 @@ function App() {
     }
   }, [activeTab]);
 
-  // Check for daily scratch game
-  useEffect(() => {
-    const lastPlayed = localStorage.getItem('lastPlayedDate');
-    const today = new Date().toDateString();
 
-    if (lastPlayed !== today) {
-      // Small delay to show it after loading
-      setTimeout(() => setShowScratchGame(true), 2000);
-    }
-  }, []);
-
-  const handleScratchWin = (prize) => {
-    const today = new Date().toDateString();
-    localStorage.setItem('lastPlayedDate', today);
-
-    if (user) {
-      const updatedUser = { ...user, wallet: (user.wallet || 0) + prize };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    } else {
-      // If no user logged in, maybe save to temp storage or prompt login?
-      // For now, let's just show toast and maybe prompt login later.
-      // Or better, just don't save points but show the win for fun/engagement.
-    }
-
-    // Close game after a moment
-    setTimeout(() => setShowScratchGame(false), 2500);
-  };
   // Simulate initial loading - REMOVED as we now have real async loading
   // useEffect(() => {
   //   const timer = setTimeout(() => setIsLoading(false), 1500);
@@ -144,6 +127,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('orders', JSON.stringify(orders));
   }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('savedLists', JSON.stringify(savedLists));
+  }, [savedLists]);
 
   // Update cart items when products change (e.g. price updates from Admin)
   useEffect(() => {
@@ -177,12 +164,15 @@ function App() {
 
   const handleLogin = (name) => {
     if (name) {
-      const userData = { name, email: 'cliente@ejemplo.com', wallet: 0 };
+      const role = name.toLowerCase() === 'admin' ? 'admin' : 'client';
+      const userData = { name, email: 'cliente@ejemplo.com', wallet: 0, role };
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
       showToast(`¡Bienvenido, ${name}!`);
     }
   };
+
+
 
   const handleLogout = () => {
     setUser(null);
@@ -274,18 +264,7 @@ function App() {
     });
   };
 
-  const handleScan = (code) => {
-    // Mock scan logic
-    const product = products.find(p => p.id === parseInt(code) || p.name.toLowerCase().includes('leche')); // Mock match
-    if (product) {
-      setSelectedProduct(product);
-      setIsScanning(false);
-      showToast('¡Producto encontrado!');
-    } else {
-      showToast('Producto no encontrado', 'error');
-      setIsScanning(false);
-    }
-  };
+
 
   const handleCategoryClick = (categoryName) => {
     setSelectedCategory(categoryName);
@@ -300,9 +279,63 @@ function App() {
     setSearchQuery('');
   };
 
+  const handleScan = (product) => {
+    setIsScanning(false);
+    if (product) {
+      addToCart(product);
+      showToast(`¡${product.name} agregado al carrito!`);
+    } else {
+      showToast('Producto no encontrado', 'error');
+    }
+  };
+
   const placeOrder = () => {
+    if (!user) {
+      showToast('Inicia sesión para continuar', 'error');
+      return;
+    }
     if (cart.length === 0) return;
     setShowCheckout(true);
+  };
+
+  const startSaveList = () => {
+    if (cart.length === 0) {
+      showToast('El carrito está vacío', 'error');
+      return;
+    }
+    setIsSavingList(true);
+    setNewListName('');
+  };
+
+  const confirmSaveList = () => {
+    if (!newListName.trim()) {
+      showToast('Ingresa un nombre para la lista', 'error');
+      return;
+    }
+    const newList = {
+      id: Date.now(),
+      name: newListName,
+      items: [...cart],
+      date: new Date().toLocaleDateString()
+    };
+    setSavedLists([...savedLists, newList]);
+    showToast('Lista guardada correctamente');
+    setIsSavingList(false);
+  };
+
+  const cancelSaveList = () => {
+    setIsSavingList(false);
+    setNewListName('');
+  };
+
+  const loadList = (list) => {
+    setCart([...list.items]);
+    showToast('Lista cargada al carrito');
+  };
+
+  const deleteList = (listId) => {
+    setSavedLists(savedLists.filter(l => l.id !== listId));
+    showToast('Lista eliminada');
   };
 
   const handleConfirmOrder = (details) => {
@@ -353,6 +386,18 @@ function App() {
       showToast(`¡Ganaste ${pointsEarned} puntos!`);
     }
 
+    // Save to Firebase
+    showToast('Guardando pedido en la nube...', 'info');
+    OrderService.createOrder(newOrder)
+      .then(id => {
+        console.log("Order saved to Firebase with ID:", id);
+        showToast('¡Pedido guardado en la nube!', 'success');
+      })
+      .catch(err => {
+        console.error("Failed to save order to Firebase:", err);
+        showToast('Error al guardar en la nube', 'error');
+      });
+
     setOrders(prev => [newOrder, ...prev]);
     setCart([]);
     setShowCheckout(false);
@@ -367,6 +412,18 @@ function App() {
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
+
+  const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const discountAmount = pointsToUse * 0.1; // 1 point = $0.10
+  const finalTotal = Math.max(0, cartTotal - discountAmount);
+
+  const totalSavings = cart.reduce((acc, item) => {
+    if (item.originalPrice && item.originalPrice > item.price) {
+      return acc + ((item.originalPrice - item.price) * item.quantity);
+    }
+    return acc;
+  }, 0);
 
   const handleShareCart = () => {
     if (cart.length === 0) return;
@@ -417,29 +474,19 @@ function App() {
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
 
-  const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
-  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const discountAmount = pointsToUse * 0.1; // 1 point = $0.10
-  const finalTotal = Math.max(0, cartTotal - discountAmount);
-
-  const totalSavings = cart.reduce((acc, item) => {
-    if (item.originalPrice && item.originalPrice > item.price) {
-      return acc + ((item.originalPrice - item.price) * item.quantity);
-    }
-    return acc;
-  }, 0);
+  // Cart calculations moved up
 
   // Best Sellers (Mock - just take first 4 products)
   const bestSellers = products.slice(0, 4);
 
-  const handleTabChange = (tab) => {
+  function handleTabChange(tab) {
     setActiveTab(tab);
     if (tab === 'home') {
       setSelectedCategory(null);
       setSelectedSubcategory(null);
       setSearchQuery('');
     }
-  };
+  }
 
   if (!isDataLoaded) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Cargando datos...</div>;
@@ -463,11 +510,13 @@ function App() {
         {adminView === 'promos' && <AdminPromotions />}
         {adminView === 'content' && <AdminContent />}
         {adminView === 'settings' && <AdminSettings />}
+        {adminView === 'combos' && <AdminCombos />}
+        {adminView === 'pos' && <AdminPOS />}
 
         {/* Placeholder for other views */}
         {adminView !== 'dashboard' && adminView !== 'products' && adminView !== 'orders' &&
           adminView !== 'customers' && adminView !== 'promos' && adminView !== 'content' &&
-          adminView !== 'settings' && (
+          adminView !== 'settings' && adminView !== 'combos' && adminView !== 'pos' && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
               <h2>Sección en construcción: {adminView}</h2>
               <p>Pronto podrás gestionar {adminView} desde aquí.</p>
@@ -479,10 +528,11 @@ function App() {
 
   return (
     <div className="app-container">
+      {isScanning && <BarcodeScanner onScan={handleScan} onClose={() => setIsScanning(false)} />}
       <Header
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        userName={user}
+        userName={user ? user.name : null}
         onOpenScanner={() => setIsScanning(true)}
         products={products}
         onProductSelect={setSelectedProduct}
@@ -494,26 +544,31 @@ function App() {
             {/* Filter Status - Simplified */}
 
 
-            {/* Categories Grid */}
+            {/* Categories Grid - Horizontal Scroll */}
             {!selectedCategory && !searchQuery && (
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Departamentos</h3>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: '1rem',
-                  textAlign: 'center'
-                }}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>Departamentos</h3>
+                  <button onClick={() => handleTabChange('categories')} style={{ background: 'none', border: 'none', color: '#666', fontSize: '0.8rem', cursor: 'pointer' }}>Ver todos</button>
+                </div>
+                <div
+                  className="no-scrollbar"
+                  style={{
+                    display: 'flex',
+                    gap: '1rem',
+                    overflowX: 'auto',
+                    paddingBottom: '0.5rem',
+                    scrollSnapType: 'x mandatory'
+                  }}
+                >
                   {categories.map(cat => {
-                    // Lucide icons map
                     const Icon = iconMap[cat.icon] || ShoppingBasket;
-
                     return (
-                      <div key={cat.id} onClick={() => handleCategoryClick(cat.name)} style={{ cursor: 'pointer' }}>
+                      <div key={cat.id} onClick={() => handleCategoryClick(cat.name)} style={{ cursor: 'pointer', minWidth: '80px', scrollSnapAlign: 'start', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <div style={{
                           backgroundColor: cat.color,
-                          width: '100%',
-                          aspectRatio: '1',
+                          width: '60px',
+                          height: '60px',
                           borderRadius: '16px',
                           display: 'flex',
                           alignItems: 'center',
@@ -523,7 +578,7 @@ function App() {
                         }}>
                           <Icon size={24} color="var(--color-primary-dark)" />
                         </div>
-                        <span style={{ fontSize: '0.75rem', fontWeight: '500', color: '#555' }}>{cat.name}</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '500', color: '#555', textAlign: 'center', lineHeight: '1.1' }}>{cat.name}</span>
                       </div>
                     );
                   })}
@@ -577,15 +632,7 @@ function App() {
               <>
                 <OffersCarousel />
 
-                <FlashSale onAdd={addToCart} />
-
-                <ComboSection onAddCombo={handleAddCombo} />
-
-                <div style={{ marginTop: '2rem' }}>
-                  <Flyer />
-                </div>
-
-                {/* Best Sellers Section */}
+                {/* Best Sellers Section - Moved Up */}
                 <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
                   <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
                     <h3>Más Vendidos 🔥</h3>
@@ -603,6 +650,13 @@ function App() {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Secondary Sections - Moved Down */}
+                <FlashSale onAdd={addToCart} />
+                <ComboSection onAddCombo={handleAddCombo} onSeeAll={() => handleTabChange('combos')} />
+                <div style={{ marginTop: '2rem' }}>
+                  <Flyer />
                 </div>
               </>
             )}
@@ -695,6 +749,10 @@ function App() {
           </>
         )}
 
+        {activeTab === 'combos' && (
+          <CombosGrid onAddCombo={handleAddCombo} onBack={() => handleTabChange('home')} />
+        )}
+
         {activeTab === 'categories' && (
           <div style={{ marginTop: '1rem' }}>
             <h3 style={{ marginBottom: '1rem', textAlign: 'center' }}>Todos los Departamentos</h3>
@@ -742,7 +800,84 @@ function App() {
 
         {activeTab === 'cart' && (
           <div>
-            <h2 style={{ marginBottom: '1.5rem' }}>Tu Carrito</h2>
+            <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0 }}>Tu Carrito</h2>
+              {cart.length > 0 && !isSavingList && (
+                <button
+                  onClick={startSaveList}
+                  style={{
+                    background: 'none',
+                    border: '1px solid var(--color-primary)',
+                    color: 'var(--color-primary)',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '20px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Guardar lista
+                </button>
+              )}
+            </div>
+
+            {/* Save List Input UI */}
+            {isSavingList && (
+              <div style={{
+                marginBottom: '1.5rem',
+                backgroundColor: 'white',
+                padding: '1rem',
+                borderRadius: '12px',
+                boxShadow: 'var(--shadow-sm)',
+                animation: 'slideDown 0.3s ease-out'
+              }}>
+                <h4 style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Nombre de la lista:</h4>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    placeholder="Ej. Despensa Semanal"
+                    autoFocus
+                    style={{
+                      flex: 1,
+                      padding: '0.5rem',
+                      borderRadius: '8px',
+                      border: '1px solid #ccc'
+                    }}
+                  />
+                  <button
+                    onClick={confirmSaveList}
+                    style={{
+                      backgroundColor: 'var(--color-primary)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    onClick={cancelSaveList}
+                    style={{
+                      backgroundColor: '#f5f5f5',
+                      color: '#666',
+                      border: 'none',
+                      padding: '0.5rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
+
 
             {cart.length === 0 ? (
               <div style={{ textAlign: 'center', marginTop: '3rem', color: '#888' }}>
@@ -912,416 +1047,214 @@ function App() {
                 </div>
               </>
             )}
+            {/* Saved Lists Section (Moved to bottom) */}
+            {savedLists.length > 0 && (
+              <div style={{ marginTop: '2rem', marginBottom: '2rem', borderTop: '1px solid #eee', paddingTop: '2rem' }}>
+                <h3 style={{ fontSize: '1rem', color: '#666', marginBottom: '1rem' }}>Mis Listas Guardadas</h3>
+                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                  {savedLists.map(list => (
+                    <div key={list.id} style={{
+                      minWidth: '200px',
+                      backgroundColor: 'white',
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      boxShadow: 'var(--shadow-sm)',
+                      border: '1px solid #eee'
+                    }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{list.name}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem' }}>
+                        {list.items.length} artículos • {list.date}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => loadList(list)}
+                          style={{
+                            flex: 1,
+                            padding: '0.5rem',
+                            backgroundColor: 'var(--color-primary)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cargar
+                        </button>
+                        <button
+                          onClick={() => deleteList(list.id)}
+                          style={{
+                            padding: '0.5rem',
+                            backgroundColor: '#ffebee',
+                            color: '#d32f2f',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'profile' && (
+          <Account
+            user={user}
+            orders={orders}
+            favorites={favorites}
+            onLogout={handleLogout}
+            onUpdateUser={(updatedUser) => {
+              setUser(updatedUser);
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+            }}
+            onToggleFavorite={toggleFavorite}
+            onAddToCart={addToCart}
+            onProductSelect={setSelectedProduct}
+          />
+        )}
+        {activeTab === 'points' && (
           <div style={{ padding: '1rem' }}>
-            <h2 style={{ marginBottom: '1.5rem' }}>Mi Cuenta</h2>
+            <h2 style={{ marginBottom: '1.5rem' }}>Mis Puntos y Cupones</h2>
 
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Mis Datos 👤</h3>
-
-              {/* Wallet & Loyalty Section */}
-              <div style={{
-                backgroundColor: 'var(--color-primary)',
-                color: 'white',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                marginBottom: '1.5rem',
-                position: 'relative',
-                overflow: 'hidden',
-                boxShadow: 'var(--shadow-md)'
-              }}>
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.5rem' }}>Monedero Electrónico</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-                    {user.wallet || 0} pts
-                  </div>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
-                    Equivale a ${(user.wallet * 0.10).toFixed(2)} MXN
-                  </div>
+            {/* Wallet & Loyalty Section */}
+            <div style={{
+              backgroundColor: 'var(--color-primary)',
+              color: 'white',
+              padding: '1.5rem',
+              borderRadius: '12px',
+              marginBottom: '1.5rem',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-md)'
+            }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.5rem' }}>Monedero Electrónico</div>
+                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
+                  {user.wallet || 0} pts
                 </div>
-
-                {/* Decorative circles */}
-                <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                <div style={{ position: 'absolute', bottom: '-30px', left: '-10px', width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              </div>
-
-              {/* Loyalty Level Progress */}
-              {(() => {
-                const points = user.wallet || 0;
-                let level = 'Bronce';
-                let nextLevel = 'Plata';
-                let maxPoints = 200;
-                let color = '#cd7f32'; // Bronze
-
-                if (points >= 500) {
-                  level = 'Oro';
-                  nextLevel = 'Max';
-                  maxPoints = 1000; // Cap visual
-                  color = '#ffd700'; // Gold
-                } else if (points >= 200) {
-                  level = 'Plata';
-                  nextLevel = 'Oro';
-                  maxPoints = 500;
-                  color = '#c0c0c0'; // Silver
-                }
-
-                const progress = Math.min(100, (points / maxPoints) * 100);
-
-                return (
-                  <div style={{ marginBottom: '2rem' }}>
-                    <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
-                      <span style={{ fontWeight: 'bold', color: color, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1.2rem' }}>🏅</span> Nivel {level}
-                      </span>
-                      <span style={{ fontSize: '0.8rem', color: '#666' }}>
-                        {nextLevel !== 'Max' ? `${maxPoints - points} pts para ${nextLevel}` : '¡Nivel Máximo!'}
-                      </span>
-                    </div>
-                    <div style={{
-                      width: '100%',
-                      height: '10px',
-                      backgroundColor: '#f0f0f0',
-                      borderRadius: '5px',
-                      overflow: 'hidden'
-                    }}>
-                      <div style={{
-                        width: `${progress}%`,
-                        height: '100%',
-                        backgroundColor: color,
-                        transition: 'width 0.5s ease'
-                      }} />
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Rewards Center */}
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Centro de Recompensas 🎁</h3>
-
-                {/* Coupons Exchange */}
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: '#666' }}>Canjea tus puntos por cupones</h4>
-                  <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                    {[
-                      { points: 500, discount: 10, code: 'DESC10' },
-                      { points: 1000, discount: 25, code: 'DESC25' },
-                      { points: 2000, discount: 50, code: 'DESC50' }
-                    ].map((coupon, idx) => (
-                      <div key={idx} style={{
-                        minWidth: '200px',
-                        backgroundColor: 'white',
-                        padding: '1rem',
-                        borderRadius: '12px',
-                        border: '1px dashed var(--color-primary)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
-                          ${coupon.discount} MXN
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem' }}>
-                          por {coupon.points} puntos
-                        </div>
-                        <button
-                          onClick={() => {
-                            if ((user.wallet || 0) >= coupon.points) {
-                              const updatedUser = {
-                                ...user,
-                                wallet: user.wallet - coupon.points,
-                                coupons: [...(user.coupons || []), { ...coupon, id: Date.now() }]
-                              };
-                              setUser(updatedUser);
-                              localStorage.setItem('user', JSON.stringify(updatedUser));
-                              showToast(`¡Cupón de $${coupon.discount} canjeado!`);
-                            } else {
-                              showToast('Puntos insuficientes', 'error');
-                            }
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '0.5rem',
-                            backgroundColor: (user.wallet || 0) >= coupon.points ? 'var(--color-primary)' : '#ccc',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: (user.wallet || 0) >= coupon.points ? 'pointer' : 'not-allowed',
-                            fontSize: '0.9rem',
-                            fontWeight: '600'
-                          }}
-                        >
-                          Canjear
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* My Coupons */}
-                <div>
-                  <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: '#666' }}>Mis Cupones Activos</h4>
-                  {(!user.coupons || user.coupons.length === 0) ? (
-                    <p style={{ fontSize: '0.9rem', color: '#999', fontStyle: 'italic' }}>No tienes cupones activos.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {user.coupons.map((coupon, idx) => (
-                        <div key={idx} className="flex-between" style={{
-                          backgroundColor: '#fff3e0',
-                          padding: '0.75rem 1rem',
-                          borderRadius: '8px',
-                          borderLeft: '4px solid #ff9800'
-                        }}>
-                          <div>
-                            <div style={{ fontWeight: 'bold', color: '#e65100' }}>Cupón ${coupon.discount} MXN</div>
-                            <div style={{ fontSize: '0.8rem', color: '#666' }}>Código: {coupon.code}</div>
-                          </div>
-                          <span style={{ fontSize: '1.5rem' }}>🎟️</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                  Equivale a ${(user.wallet * 0.10).toFixed(2)} MXN
                 </div>
               </div>
 
-              <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', marginBottom: '1rem' }}>
-                <button
-                  onClick={() => setShowMap(true)}
-                  style={{
-                    width: '100%',
-                    padding: '1rem',
-                    backgroundColor: '#e3f2fd',
-                    color: 'var(--color-primary)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    marginBottom: '1rem'
-                  }}
-                >
-                  <MapPin size={20} />
-                  Ver Sucursales y Horarios
-                </button>
-
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>Nombre</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      type="text"
-                      value={user.name}
-                      onChange={(e) => {
-                        const newName = e.target.value;
-                        const updatedUser = { ...user, name: newName };
-                        setUser(updatedUser);
-                        localStorage.setItem('user', JSON.stringify(updatedUser));
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '0.5rem',
-                        borderRadius: '8px',
-                        border: '1px solid #ddd',
-                        fontSize: '1rem'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>Direcciones Guardadas</label>
-                  {(() => {
-                    const savedAddresses = JSON.parse(localStorage.getItem('addresses') || '[]');
-                    if (savedAddresses.length === 0) return <p style={{ fontSize: '0.9rem', color: '#999', fontStyle: 'italic' }}>No hay direcciones guardadas.</p>;
-
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {savedAddresses.map((addr, idx) => (
-                          <div key={idx} className="flex-between" style={{
-                            padding: '0.75rem',
-                            backgroundColor: '#f9f9f9',
-                            borderRadius: '8px',
-                            fontSize: '0.9rem'
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <MapPin size={16} color="#666" />
-                              <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{addr}</span>
-                            </div>
-                            <button
-                              onClick={() => {
-                                const newAddresses = savedAddresses.filter((_, i) => i !== idx);
-                                localStorage.setItem('addresses', JSON.stringify(newAddresses));
-                                // Force re-render (hacky but works for simple localStorage sync in this scope)
-                                setActiveTab('profile');
-                                showToast('Dirección eliminada', 'info');
-                              }}
-                              style={{ color: '#d32f2f', background: 'none', border: 'none', cursor: 'pointer' }}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
+              {/* Decorative circles */}
+              <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)' }} />
+              <div style={{ position: 'absolute', bottom: '-30px', left: '-10px', width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)' }} />
             </div>
 
+            {/* Rewards Center */}
             <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Mis Favoritos ❤️</h3>
-              {favorites.length === 0 ? (
-                <div style={{
-                  backgroundColor: 'white',
-                  padding: '2rem',
-                  borderRadius: 'var(--radius)',
-                  textAlign: 'center',
-                  border: '1px dashed #ddd'
-                }}>
-                  <Heart size={48} color="#ddd" style={{ marginBottom: '1rem' }} />
-                  <p style={{ color: '#666', marginBottom: '1rem' }}>Guarda lo que te guste para después.</p>
-                  <button
-                    onClick={() => setActiveTab('home')}
-                    className="btn btn-primary"
-                    style={{ width: 'auto' }}
-                  >
-                    Explorar productos
-                  </button>
-                </div>
-              ) : (
-                <div className="grid-2">
-                  {favorites.map(product => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onAdd={addToCart}
-                      isFavorite={true}
-                      onToggleFavorite={() => toggleFavorite(product)}
-                      onClick={() => setSelectedProduct(product)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+              <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Centro de Recompensas 🎁</h3>
 
-            <div>
-              <h3 style={{ marginBottom: '1rem', color: '#666' }}>Historial de Pedidos</h3>
-              {orders.length === 0 ? (
-                <div style={{
-                  backgroundColor: 'white',
-                  padding: '2rem',
-                  borderRadius: 'var(--radius)',
-                  textAlign: 'center',
-                  border: '1px dashed #ddd'
-                }}>
-                  <Package size={48} color="#ddd" style={{ marginBottom: '1rem' }} />
-                  <p style={{ color: '#666' }}>Aún no has realizado pedidos.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {orders.map(order => (
-                    <div key={order.id} style={{
+              {/* Coupons Exchange */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: '#666' }}>Canjea tus puntos por cupones</h4>
+                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                  {[
+                    { points: 500, discount: 10, code: 'DESC10' },
+                    { points: 1000, discount: 25, code: 'DESC25' },
+                    { points: 2000, discount: 50, code: 'DESC50' }
+                  ].map((coupon, idx) => (
+                    <div key={idx} style={{
+                      minWidth: '200px',
                       backgroundColor: 'white',
                       padding: '1rem',
-                      borderRadius: 'var(--radius)',
-                      boxShadow: 'var(--shadow-sm)'
+                      borderRadius: '12px',
+                      border: '1px dashed var(--color-primary)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center'
                     }}>
-                      <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Package size={20} color="var(--color-primary)" />
-                          <span style={{ fontWeight: 'bold' }}>Pedido #{order.id}</span>
-                        </div>
-                        <span style={{ fontSize: '0.9rem', color: '#666' }}>{order.date}</span>
+                      <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
+                        ${coupon.discount} MXN
                       </div>
-
-                      <div style={{ marginBottom: '0.75rem', paddingLeft: '28px' }}>
-                        <p style={{ fontSize: '0.9rem', color: '#666' }}>
-                          {order.items.length} productos • ${order.total.toFixed(2)}
-                        </p>
+                      <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem' }}>
+                        por {coupon.points} puntos
                       </div>
-
-                      {/* Expanded Details */}
-                      {expandedOrderId === order.id && (
-                        <div style={{
-                          marginTop: '0.5rem',
-                          marginBottom: '1rem',
-                          paddingTop: '0.5rem',
-                          borderTop: '1px dashed #eee',
-                          animation: 'fadeIn 0.3s'
-                        }}>
-                          {order.items.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
-                              <img src={item.image} alt="" style={{ width: '30px', height: '30px', objectFit: 'contain', borderRadius: '4px', backgroundColor: '#f5f5f5' }} />
-                              <div style={{ flex: 1, fontSize: '0.85rem' }}>
-                                <div style={{ fontWeight: '500' }}>{item.name}</div>
-                                <div style={{ color: '#666' }}>x{item.quantity}</div>
-                              </div>
-                              <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>
-                                ${(item.price * item.quantity).toFixed(2)}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex-between" style={{
-                        backgroundColor: '#f5f5f5',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#2e7d32' }}>
-                          <Clock size={16} />
-                          <span style={{ fontWeight: '500' }}>{order.status}</span>
-                        </div>
-                        <button
-                          onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
-                          style={{ color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '0.8rem', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          {expandedOrderId === order.id ? 'Ocultar detalles' : 'Ver detalles'}
-                        </button>
-                      </div>
-
                       <button
-                        onClick={() => handleReorder(order)}
+                        onClick={() => {
+                          if ((user.wallet || 0) >= coupon.points) {
+                            const updatedUser = {
+                              ...user,
+                              wallet: user.wallet - coupon.points,
+                              coupons: [...(user.coupons || []), { ...coupon, id: Date.now() }]
+                            };
+                            setUser(updatedUser);
+                            localStorage.setItem('user', JSON.stringify(updatedUser));
+                            showToast(`¡Cupón de $${coupon.discount} canjeado!`);
+                          } else {
+                            showToast('Puntos insuficientes', 'error');
+                          }
+                        }}
                         style={{
                           width: '100%',
-                          marginTop: '0.75rem',
-                          padding: '0.75rem',
-                          backgroundColor: 'var(--color-primary)',
+                          padding: '0.5rem',
+                          backgroundColor: (user.wallet || 0) >= coupon.points ? 'var(--color-primary)' : '#ccc',
                           color: 'white',
                           border: 'none',
                           borderRadius: '8px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.5rem'
+                          cursor: (user.wallet || 0) >= coupon.points ? 'pointer' : 'not-allowed',
+                          fontSize: '0.9rem',
+                          fontWeight: '600'
                         }}
                       >
-                        <ShoppingBasket size={18} />
-                        Volver a pedir
+                        Canjear
                       </button>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+
+              {/* My Coupons */}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: '#666' }}>Mis Cupones Activos</h4>
+                {(!user.coupons || user.coupons.length === 0) ? (
+                  <p style={{ fontSize: '0.9rem', color: '#999', fontStyle: 'italic' }}>No tienes cupones activos.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {user.coupons.map((coupon, idx) => (
+                      <div key={idx} className="flex-between" style={{
+                        backgroundColor: '#fff3e0',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '8px',
+                        borderLeft: '4px solid #ff9800'
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: 'bold', color: '#e65100' }}>Cupón ${coupon.discount} MXN</div>
+                          <div style={{ fontSize: '0.8rem', color: '#666' }}>Código: {coupon.code}</div>
+                        </div>
+                        <span style={{ fontSize: '1.5rem' }}>🎟️</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
         {activeTab === 'admin' && (
-          <AdminPanel />
+          <AdminLayout activeView={adminView} onViewChange={setAdminView} onLogout={() => setActiveTab('home')}>
+            {adminView === 'dashboard' && <AdminPanel />}
+            {adminView === 'products' && <AdminProducts />}
+            {adminView === 'orders' && <AdminOrders />}
+            {adminView === 'customers' && <AdminCustomers />}
+            {adminView === 'promos' && <AdminPromotions />}
+            {adminView === 'combos' && <AdminCombos />}
+            {adminView === 'pos' && <AdminPOS />}
+            {adminView === 'content' && <AdminContent />}
+            {adminView === 'settings' && <AdminSettings />}
+          </AdminLayout>
         )}
       </main>
 
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} cartCount={cartCount} isAnimating={cartAnimating} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} cartCount={cartCount} isAnimating={cartAnimating} user={user} />
 
       {/* Product Details Modal */}
       {
@@ -1398,11 +1331,11 @@ function App() {
           <StoreMap onClose={() => setShowMap(false)} />
         )
       }
-      {/* Daily Scratch Game */}
-      {showScratchGame && (
-        <ScratchGame
-          onWin={handleScratchWin}
-          onClose={() => setShowScratchGame(false)}
+      {/* Barcode Scanner Overlay */}
+      {isScanning && (
+        <BarcodeScanner
+          onClose={() => setIsScanning(false)}
+          onScan={handleScan}
         />
       )}
     </div >

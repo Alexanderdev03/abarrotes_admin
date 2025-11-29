@@ -1,7 +1,7 @@
 import React from 'react';
 import { Home, Grid, ShoppingCart, User, Settings } from 'lucide-react';
 
-export function BottomNav({ activeTab, onTabChange, cartCount, isAnimating }) {
+export function BottomNav({ activeTab, onTabChange, cartCount, isAnimating, user }) {
   return (
     <nav style={{
       position: 'fixed',
@@ -91,6 +91,22 @@ export function BottomNav({ activeTab, onTabChange, cartCount, isAnimating }) {
       </button>
 
       <button
+        onClick={() => onTabChange('points')}
+        style={{
+          background: 'none',
+          border: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          color: activeTab === 'points' ? 'var(--color-primary)' : '#999',
+          cursor: 'pointer'
+        }}
+      >
+        <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>🪙</span>
+        <span style={{ fontSize: '0.7rem', marginTop: '4px' }}>Puntos</span>
+      </button>
+
+      <button
         onClick={() => onTabChange('profile')}
         style={{
           background: 'none',
@@ -106,22 +122,24 @@ export function BottomNav({ activeTab, onTabChange, cartCount, isAnimating }) {
         <span style={{ fontSize: '0.7rem', marginTop: '4px' }}>Cuenta</span>
       </button>
 
-      {/* Admin Tab (Temporary) */}
-      <button
-        onClick={() => onTabChange('admin')}
-        style={{
-          background: 'none',
-          border: 'none',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          color: activeTab === 'admin' ? 'var(--color-primary)' : '#999',
-          cursor: 'pointer'
-        }}
-      >
-        <Settings size={24} />
-        <span style={{ fontSize: '0.7rem', marginTop: '4px' }}>Admin</span>
-      </button>
+      {/* Admin Tab - Only visible for admin role */}
+      {user?.role === 'admin' && (
+        <button
+          onClick={() => onTabChange('admin')}
+          style={{
+            background: 'none',
+            border: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: activeTab === 'admin' ? 'var(--color-primary)' : '#999',
+            cursor: 'pointer'
+          }}
+        >
+          <Settings size={24} />
+          <span style={{ fontSize: '0.7rem', marginTop: '4px' }}>Admin</span>
+        </button>
+      )}
     </nav>
   );
 }

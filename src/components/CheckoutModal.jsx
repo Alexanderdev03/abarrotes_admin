@@ -10,6 +10,7 @@ export function CheckoutModal({ onClose, onConfirm, total }) {
     const [showAddressForm, setShowAddressForm] = useState(savedAddresses.length === 0);
     const [newAddress, setNewAddress] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [deliveryMethod, setDeliveryMethod] = useState('delivery'); // 'delivery', 'pickup'
     const [deliverySchedule, setDeliverySchedule] = useState('asap'); // 'asap', 'morning', 'afternoon'
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -45,6 +46,8 @@ export function CheckoutModal({ onClose, onConfirm, total }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        const formData = new FormData(e.target);
+        const receiverName = formData.get('receiverName');
 
         let finalAddress = '';
         if (showAddressForm) {
@@ -61,15 +64,14 @@ export function CheckoutModal({ onClose, onConfirm, total }) {
 
         setIsProcessing(true);
         setTimeout(() => {
-            setTimeout(() => {
-                onConfirm({
-                    address: finalAddress,
-                    paymentMethod,
-                    deliverySchedule,
-                    coupon: appliedCoupon // Pass the applied coupon
-                });
-                setIsProcessing(false);
-            }, 1500);
+            onConfirm({
+                receiverName,
+                deliveryMethod,
+                address: deliveryMethod === 'delivery' ? finalAddress : 'Recoger en Tienda',
+                paymentMethod,
+                deliverySchedule,
+                coupon: appliedCoupon // Pass the applied coupon
+            });
             setIsProcessing(false);
         }, 1500);
     };
@@ -122,109 +124,167 @@ export function CheckoutModal({ onClose, onConfirm, total }) {
                 <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#333' }}>
-                            <MapPin size={16} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} />
-                            Dirección de Entrega
+                            Nombre de quien recibe
                         </label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="Tu nombre completo"
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem',
+                                borderRadius: '8px',
+                                border: '1px solid #ddd',
+                                fontSize: '1rem'
+                            }}
+                            name="receiverName" // Added name attribute for easier testing
+                        />
+                    </div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#333' }}>
+                            Método de Entrega
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                            <button
+                                type="button"
+                                onClick={() => setDeliveryMethod('delivery')}
+                                style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    border: `2px solid ${deliveryMethod === 'delivery' ? 'var(--color-primary)' : '#eee'}`,
+                                    backgroundColor: deliveryMethod === 'delivery' ? '#e8f5e9' : 'white',
+                                    color: deliveryMethod === 'delivery' ? 'var(--color-primary)' : '#666',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🚚 Envío a Domicilio
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDeliveryMethod('pickup')}
+                                style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    border: `2px solid ${deliveryMethod === 'pickup' ? 'var(--color-primary)' : '#eee'}`,
+                                    backgroundColor: deliveryMethod === 'pickup' ? '#e8f5e9' : 'white',
+                                    color: deliveryMethod === 'pickup' ? 'var(--color-primary)' : '#666',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🏪 Recoger en Tienda
+                            </button>
+                        </div>
 
-                        {!showAddressForm && savedAddresses.length > 0 && (
-                            <div style={{ marginBottom: '1rem' }}>
-                                {savedAddresses.map((addr, index) => (
-                                    <div key={index} style={{
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        marginBottom: '0.5rem',
-                                        padding: '0.5rem',
-                                        border: selectedAddressIndex === index ? '1px solid var(--color-primary)' : '1px solid #eee',
-                                        borderRadius: '8px',
-                                        backgroundColor: selectedAddressIndex === index ? '#e8f5e9' : 'white',
-                                        cursor: 'pointer'
-                                    }}
-                                        onClick={() => setSelectedAddressIndex(index)}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="address"
-                                            checked={selectedAddressIndex === index}
-                                            onChange={() => setSelectedAddressIndex(index)}
-                                            style={{ marginTop: '4px', marginRight: '8px' }}
-                                        />
-                                        <span style={{ fontSize: '0.9rem', color: '#555' }}>{addr}</span>
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAddressForm(true)}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: 'var(--color-primary)',
-                                        fontWeight: 'bold',
-                                        fontSize: '0.9rem',
-                                        cursor: 'pointer',
-                                        marginTop: '0.5rem',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}
-                                >
-                                    + Agregar nueva dirección
-                                </button>
-                            </div>
-                        )}
+                        {deliveryMethod === 'delivery' && (
+                            <>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#333' }}>
+                                    <MapPin size={16} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} />
+                                    Dirección de Entrega
+                                </label>
 
-                        {showAddressForm && (
-                            <div style={{ animation: 'fadeIn 0.3s' }}>
-                                <textarea
-                                    required={showAddressForm}
-                                    value={newAddress}
-                                    onChange={(e) => setNewAddress(e.target.value)}
-                                    placeholder="Calle, Número, Colonia..."
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.75rem',
-                                        borderRadius: '8px',
-                                        border: '1px solid #ddd',
-                                        fontFamily: 'inherit',
-                                        resize: 'none',
-                                        height: '80px',
-                                        marginBottom: '0.5rem'
-                                    }}
-                                />
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button
-                                        type="button"
-                                        onClick={handleSaveAddress}
-                                        disabled={!newAddress.trim()}
-                                        style={{
-                                            flex: 1,
-                                            padding: '0.5rem',
-                                            backgroundColor: '#333',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            fontSize: '0.9rem'
-                                        }}
-                                    >
-                                        Guardar Dirección
-                                    </button>
-                                    {savedAddresses.length > 0 && (
+                                {!showAddressForm && savedAddresses.length > 0 && (
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        {savedAddresses.map((addr, index) => (
+                                            <div key={index} style={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                marginBottom: '0.5rem',
+                                                padding: '0.5rem',
+                                                border: selectedAddressIndex === index ? '1px solid var(--color-primary)' : '1px solid #eee',
+                                                borderRadius: '8px',
+                                                backgroundColor: selectedAddressIndex === index ? '#e8f5e9' : 'white',
+                                                cursor: 'pointer'
+                                            }}
+                                                onClick={() => setSelectedAddressIndex(index)}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="address"
+                                                    checked={selectedAddressIndex === index}
+                                                    onChange={() => setSelectedAddressIndex(index)}
+                                                    style={{ marginTop: '4px', marginRight: '8px' }}
+                                                />
+                                                <span style={{ fontSize: '0.9rem', color: '#555' }}>{addr}</span>
+                                            </div>
+                                        ))}
                                         <button
                                             type="button"
-                                            onClick={() => setShowAddressForm(false)}
+                                            onClick={() => setShowAddressForm(true)}
                                             style={{
-                                                padding: '0.5rem',
                                                 background: 'none',
-                                                border: '1px solid #ddd',
-                                                borderRadius: '4px',
+                                                border: 'none',
+                                                color: 'var(--color-primary)',
+                                                fontWeight: 'bold',
+                                                fontSize: '0.9rem',
                                                 cursor: 'pointer',
-                                                fontSize: '0.9rem'
+                                                marginTop: '0.5rem',
+                                                display: 'flex',
+                                                alignItems: 'center'
                                             }}
                                         >
-                                            Cancelar
+                                            + Agregar nueva dirección
                                         </button>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
+                                )}
+
+                                {showAddressForm && (
+                                    <div style={{ animation: 'fadeIn 0.3s' }}>
+                                        <textarea
+                                            required={showAddressForm}
+                                            value={newAddress}
+                                            onChange={(e) => setNewAddress(e.target.value)}
+                                            placeholder="Calle, Número, Colonia..."
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.75rem',
+                                                borderRadius: '8px',
+                                                border: '1px solid #ddd',
+                                                fontFamily: 'inherit',
+                                                resize: 'none',
+                                                height: '80px',
+                                                marginBottom: '0.5rem'
+                                            }}
+                                        />
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                type="button"
+                                                onClick={handleSaveAddress}
+                                                disabled={!newAddress.trim()}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '0.5rem',
+                                                    backgroundColor: '#333',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem'
+                                                }}
+                                            >
+                                                Guardar Dirección
+                                            </button>
+                                            {savedAddresses.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAddressForm(false)}
+                                                    style={{
+                                                        padding: '0.5rem',
+                                                        background: 'none',
+                                                        border: '1px solid #ddd',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.9rem'
+                                                    }}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 
@@ -422,7 +482,7 @@ export function CheckoutModal({ onClose, onConfirm, total }) {
 
                     <button
                         type="submit"
-                        disabled={isProcessing || (showAddressForm && !newAddress.trim())}
+                        disabled={isProcessing || (deliveryMethod === 'delivery' && showAddressForm && !newAddress.trim())}
                         className="btn-add"
                         style={{
                             width: '100%',

@@ -1,15 +1,15 @@
 import React from 'react';
-import { ShoppingBag, Plus } from 'lucide-react';
+import { Plus, ArrowLeft } from 'lucide-react';
 
-export function ComboSection({ onAddCombo, onSeeAll }) {
+export function CombosGrid({ onAddCombo, onBack }) {
     const [combos, setCombos] = React.useState([]);
 
     React.useEffect(() => {
-        // ... (existing useEffect logic)
         const storedCombos = JSON.parse(localStorage.getItem('combos') || '[]');
         if (storedCombos.length > 0) {
             setCombos(storedCombos);
         } else {
+            // Fallback to defaults if empty (same as ComboSection)
             const defaultCombos = [
                 {
                     id: 'combo-1',
@@ -53,54 +53,36 @@ export function ComboSection({ onAddCombo, onSeeAll }) {
             ];
             setCombos(defaultCombos);
         }
-
-        const handleStorageChange = () => {
-            const updated = JSON.parse(localStorage.getItem('combos') || '[]');
-            if (updated.length > 0) setCombos(updated);
-        };
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     return (
-        <div style={{ marginBottom: '2rem' }}>
-            <div className="flex-between" style={{ marginBottom: '1rem' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    Combos Morralla 💰
-                </h3>
+        <div style={{ paddingBottom: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
                 <button
-                    onClick={onSeeAll}
-                    style={{
-                        fontSize: '0.85rem',
-                        color: 'var(--color-primary)',
-                        fontWeight: '600',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer'
-                    }}
+                    onClick={onBack}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', marginLeft: '-0.5rem' }}
                 >
-                    Ver todos
+                    <ArrowLeft size={24} color="var(--color-primary)" />
                 </button>
+                <h2 style={{ margin: 0 }}>Todos los Combos 💰</h2>
             </div>
 
             <div style={{
-                display: 'flex',
-                gap: '1rem',
-                overflowX: 'auto',
-                paddingBottom: '1rem',
-                scrollSnapType: 'x mandatory'
-            }} className="no-scrollbar">
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                gap: '1rem'
+            }}>
                 {combos.map(combo => (
                     <div key={combo.id} style={{
-                        minWidth: '260px',
                         backgroundColor: 'white',
                         borderRadius: '12px',
                         overflow: 'hidden',
                         boxShadow: 'var(--shadow-sm)',
-                        scrollSnapAlign: 'start',
-                        border: '1px solid #eee'
+                        border: '1px solid #eee',
+                        display: 'flex',
+                        flexDirection: 'column'
                     }}>
-                        <div style={{ position: 'relative', height: '140px' }}>
+                        <div style={{ position: 'relative', aspectRatio: '16/9' }}>
                             <img
                                 src={combo.image}
                                 alt={combo.name}
@@ -108,47 +90,49 @@ export function ComboSection({ onAddCombo, onSeeAll }) {
                             />
                             <div style={{
                                 position: 'absolute',
-                                top: '10px',
-                                right: '10px',
+                                top: '8px',
+                                right: '8px',
                                 backgroundColor: '#d32f2f',
                                 color: 'white',
-                                padding: '0.25rem 0.75rem',
-                                borderRadius: '12px',
-                                fontSize: '0.8rem',
+                                padding: '0.25rem 0.5rem',
+                                borderRadius: '8px',
+                                fontSize: '0.7rem',
                                 fontWeight: 'bold'
                             }}>
-                                Ahorras ${combo.originalPrice - combo.price}
+                                -${(combo.originalPrice - combo.price).toFixed(0)}
                             </div>
                         </div>
 
-                        <div style={{ padding: '1rem' }}>
-                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{combo.name}</h4>
-                            <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', color: '#666' }}>{combo.description}</p>
+                        <div style={{ padding: '0.75rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>{combo.name}</h4>
+                            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#666', flex: 1 }}>{combo.description}</p>
 
-                            <div className="flex-between" style={{ marginBottom: '1rem' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem' }}>
-                                        ${combo.originalPrice.toFixed(2)}
-                                    </span>
-                                    <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                            <div style={{ marginTop: 'auto' }}>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>
                                         ${combo.price.toFixed(2)}
+                                    </span>
+                                    <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.8rem' }}>
+                                        ${combo.originalPrice.toFixed(2)}
                                     </span>
                                 </div>
 
                                 <button
                                     onClick={() => onAddCombo(combo)}
                                     style={{
+                                        width: '100%',
                                         backgroundColor: '#333',
                                         color: 'white',
                                         border: 'none',
                                         borderRadius: '8px',
-                                        padding: '0.5rem 1rem',
-                                        fontSize: '0.9rem',
+                                        padding: '0.5rem',
+                                        fontSize: '0.85rem',
                                         fontWeight: '600',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '0.5rem'
+                                        justifyContent: 'center',
+                                        gap: '0.25rem'
                                     }}
                                 >
                                     <Plus size={16} />

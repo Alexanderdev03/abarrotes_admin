@@ -1,28 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Package, Truck, CheckCircle, Search, Eye } from 'lucide-react';
 
-// Mock Order Service (We'll implement the real one next)
-const OrderService = {
-    getAllOrders: async () => {
-        // Simulate fetching from Firebase
-        return new Promise(resolve => {
-            setTimeout(() => {
-                const saved = localStorage.getItem('orders');
-                resolve(saved ? JSON.parse(saved) : []);
-            }, 500);
-        });
-    },
-    updateStatus: async (orderId, status) => {
-        // Simulate update
-        const saved = localStorage.getItem('orders');
-        if (saved) {
-            const orders = JSON.parse(saved);
-            const updated = orders.map(o => o.id === orderId ? { ...o, status } : o);
-            localStorage.setItem('orders', JSON.stringify(updated));
-        }
-        return true;
-    }
-};
+import { OrderService } from '../../services/orders';
 
 const STATUS_COLUMNS = [
     { id: 'pending', label: 'Pendiente', icon: Clock, color: '#f59e0b', bg: '#fef3c7' },
@@ -42,7 +21,7 @@ export function AdminOrders() {
 
     const loadOrders = async () => {
         setLoading(true);
-        const data = await OrderService.getAllOrders();
+        const data = await OrderService.getOrders();
         // Ensure orders have a status, default to 'pending'
         const normalized = data.map(o => ({ ...o, status: o.status || 'pending' }));
         setOrders(normalized);
@@ -127,7 +106,7 @@ export function AdminOrders() {
                                     }}
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                        <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>#{order.id.slice(0, 8)}</span>
+                                        <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>#{String(order.id).slice(0, 8)}</span>
                                         <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
                                             {new Date(order.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
@@ -136,6 +115,9 @@ export function AdminOrders() {
                                     <div style={{ marginBottom: '0.75rem' }}>
                                         <div style={{ fontSize: '0.9rem', color: '#374151' }}>Total: <strong>${order.total.toFixed(2)}</strong></div>
                                         <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{order.items.length} productos</div>
+                                        <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', color: order.deliveryMethod === 'pickup' ? '#d97706' : '#059669', fontWeight: '500' }}>
+                                            {order.deliveryMethod === 'pickup' ? '🏪 Recoger en Tienda' : '🚚 Envío a Domicilio'}
+                                        </div>
                                     </div>
 
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid #f3f4f6' }}>

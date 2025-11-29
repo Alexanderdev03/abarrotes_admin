@@ -1,10 +1,28 @@
-import React from 'react';
-import { User, Mail, Phone, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Phone, MapPin, Edit, Save, X } from 'lucide-react';
 
 export function AdminCustomers() {
     // Mock data or read from localStorage 'user'
-    const localUser = JSON.parse(localStorage.getItem('user') || 'null');
-    const customers = localUser ? [localUser] : [];
+    const [customers, setCustomers] = useState([]);
+    const [editingId, setEditingId] = useState(null);
+    const [newPoints, setNewPoints] = useState('');
+
+    useEffect(() => {
+        const localUser = JSON.parse(localStorage.getItem('user') || 'null');
+        setCustomers(localUser ? [localUser] : []);
+    }, []);
+
+    const handleEditPoints = (customer) => {
+        setEditingId(customer.email); // Using email as ID for now since we have 1 user
+        setNewPoints(customer.wallet || 0);
+    };
+
+    const handleSavePoints = (customer) => {
+        const updatedUser = { ...customer, wallet: parseInt(newPoints) };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setCustomers([updatedUser]);
+        setEditingId(null);
+    };
 
     return (
         <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
@@ -56,7 +74,25 @@ export function AdminCustomers() {
                                     </div>
                                 </td>
                                 <td style={{ padding: '1rem' }}>
-                                    <span style={{ fontWeight: 'bold', color: '#ea580c' }}>{customer.wallet || 0} pts</span>
+                                    {editingId === customer.email ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <input
+                                                type="number"
+                                                value={newPoints}
+                                                onChange={(e) => setNewPoints(e.target.value)}
+                                                style={{ width: '60px', padding: '0.25rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                                            />
+                                            <button onClick={() => handleSavePoints(customer)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'green' }}><Save size={16} /></button>
+                                            <button onClick={() => setEditingId(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'red' }}><X size={16} /></button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ fontWeight: 'bold', color: '#ea580c' }}>{customer.wallet || 0} pts</span>
+                                            <button onClick={() => handleEditPoints(customer)} style={{ border: 'none', background: 'none', cursor: 'pointer', opacity: 0.5 }}>
+                                                <Edit size={14} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </td>
                                 <td style={{ padding: '1rem' }}>
                                     <span style={{

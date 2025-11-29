@@ -8,6 +8,7 @@ export function AdminProducts() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,7 +62,8 @@ export function AdminProducts() {
     };
 
     const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        (selectedCategory === '' || p.category === selectedCategory || (categories.find(c => c.id === p.category)?.name === selectedCategory))
     );
 
     return (
@@ -96,6 +98,19 @@ export function AdminProducts() {
                         }}
                     />
                 </div>
+                <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    style={{
+                        padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none',
+                        minWidth: '150px'
+                    }}
+                >
+                    <option value="">Todas las Categorías</option>
+                    {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                </select>
             </div>
 
             {/* Table */}

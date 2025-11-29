@@ -218,7 +218,16 @@ export function ProductDetails({ product, products, onClose, onAdd, isFavorite, 
                                 <img src={related.image} alt={related.name} style={{ width: '100%', height: '80px', objectFit: 'contain' }} />
                                 <div>
                                     <p style={{ fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.25rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{related.name}</p>
-                                    <p style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>${related.price.toFixed(2)}</p>
+                                    <div>
+                                        {related.originalPrice && related.originalPrice > related.price && (
+                                            <span style={{ fontSize: '0.75rem', color: '#999', textDecoration: 'line-through', marginRight: '6px' }}>
+                                                ${related.originalPrice.toFixed(2)}
+                                            </span>
+                                        )}
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                                            ${related.price.toFixed(2)}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         ))}
