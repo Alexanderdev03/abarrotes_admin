@@ -1,8 +1,6 @@
-const CACHE_NAME = 'abarrotes-alex-v2';
+const CACHE_NAME = 'abarrotes-alex-online-v1';
+// We only cache the logo/manifest for the install experience, but NOT the app content
 const urlsToCache = [
-    '/',
-    '/index.html',
-    '/manifest.json',
     '/logo.png',
     '/vite.svg'
 ];
@@ -29,36 +27,14 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+    // Network Only Strategy
+    // We do NOT return from cache. We always go to the network.
+    // If network fails, the browser will show the standard offline error.
     event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // Cache hit - return response
-                if (response) {
-                    return response;
-                }
-
-                // Clone the request
-                const fetchRequest = event.request.clone();
-
-                return fetch(fetchRequest).then(
-                    response => {
-                        // Check if we received a valid response
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
-                        }
-
-                        // Clone the response
-                        const responseToCache = response.clone();
-
-                        caches.open(CACHE_NAME)
-                            .then(cache => {
-                                // Cache new requests dynamically
-                                cache.put(event.request, responseToCache);
-                            });
-
-                        return response;
-                    }
-                );
-            })
+        fetch(event.request).catch(() => {
+            // Optional: We could return a custom "Offline" page here if we wanted,
+            // but for now we just let it fail as requested.
+            // Returning undefined lets the browser handle the failure.
+        })
     );
 });
