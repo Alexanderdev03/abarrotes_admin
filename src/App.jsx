@@ -14,21 +14,10 @@ import { StoreMap } from './components/StoreMap';
 import { FlashSale } from './components/FlashSale';
 import { ComboSection } from './components/ComboSection';
 
-import { AdminLayout } from './components/admin/AdminLayout';
-import { AdminProducts } from './components/admin/AdminProducts';
-import { AdminOrders } from './components/admin/AdminOrders';
-import { AdminCustomers } from './components/admin/AdminCustomers';
-import { AdminPromotions } from './components/admin/AdminPromotions';
-import { AdminContent } from './components/admin/AdminContent';
-import { AdminSettings } from './components/admin/AdminSettings';
-import { AdminPanel } from './components/AdminPanel';
-import { AdminCombos } from './components/admin/AdminCombos';
-import { AdminCategories } from './components/admin/AdminCategories';
-import { AdminPOS } from './components/admin/AdminPOS';
+import { AdminRouter } from './components/admin/AdminRouter';
 import { Account } from './components/Account';
 import { ProductSkeleton } from './components/ProductSkeleton';
-import { ProductService } from './services/products';
-import { OrderService } from './services/orders';
+import { api } from './services/api';
 import { CombosGrid } from './components/CombosGrid';
 import { HomeView } from './components/HomeView';
 
@@ -44,10 +33,10 @@ function App() {
 
   const loadData = async () => {
     try {
-      const fetchedProducts = await ProductService.getAllProducts();
-      const fetchedCategories = await ProductService.getAllCategories();
-      setProducts(fetchedProducts);
-      setCategories(fetchedCategories);
+      const allProducts = await api.products.getAll();
+      const allCategories = await api.products.getCategories();
+      setProducts(allProducts);
+      setCategories(allCategories);
       setIsDataLoaded(true);
       setIsLoading(false);
     } catch (error) {
@@ -583,32 +572,12 @@ function App() {
 
   if (activeTab === 'admin') {
     return (
-      <AdminLayout
+      <AdminRouter
         activeView={adminView}
         onViewChange={setAdminView}
         onLogout={() => setActiveTab('home')}
-      >
-        {adminView === 'dashboard' && <AdminPanel />}
-        {adminView === 'products' && <AdminProducts />}
-        {adminView === 'orders' && <AdminOrders />}
-        {adminView === 'customers' && <AdminCustomers />}
-        {adminView === 'promos' && <AdminPromotions />}
-        {adminView === 'content' && <AdminContent />}
-        {adminView === 'settings' && <AdminSettings />}
-        {adminView === 'combos' && <AdminCombos />}
-        {adminView === 'categories' && <AdminCategories />}
-        {adminView === 'pos' && <AdminPOS />}
-
-        {/* Placeholder for other views */}
-        {adminView !== 'dashboard' && adminView !== 'products' && adminView !== 'orders' &&
-          adminView !== 'customers' && adminView !== 'promos' && adminView !== 'content' &&
-          adminView !== 'settings' && adminView !== 'combos' && adminView !== 'pos' && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
-              <h2>Sección en construcción: {adminView}</h2>
-              <p>Pronto podrás gestionar {adminView} desde aquí.</p>
-            </div>
-          )}
-      </AdminLayout>
+        onExit={() => setActiveTab('home')}
+      />
     );
   }
 

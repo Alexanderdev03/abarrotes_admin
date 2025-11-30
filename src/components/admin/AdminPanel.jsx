@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, ShoppingBag, Users, DollarSign, Download, Calendar, AlertTriangle } from 'lucide-react';
-import { ProductService } from '../services/products';
-import { OrderService } from '../services/orders';
+import { api } from '../../services/api';
 
 export function AdminPanel() {
     const [stats, setStats] = useState({
@@ -25,9 +24,9 @@ export function AdminPanel() {
 
     const loadDashboardData = async () => {
         // Load orders from Firebase
-        const orders = await OrderService.getOrders();
+        const orders = await api.orders.getAll();
         const customers = JSON.parse(localStorage.getItem('user') ? '[1]' : '[]'); // Mock customer count
-        const products = await ProductService.getAllProducts();
+        const products = await api.products.getAll();
 
         // Calculate Stats
         const now = new Date();
@@ -106,7 +105,7 @@ export function AdminPanel() {
     };
 
     const exportToExcel = async () => {
-        const orders = await OrderService.getOrders();
+        const orders = await api.orders.getAll();
         if (orders.length === 0) {
             alert('No hay datos para exportar');
             return;

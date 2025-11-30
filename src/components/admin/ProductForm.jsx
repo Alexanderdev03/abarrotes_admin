@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Image as ImageIcon } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Loader } from 'lucide-react';
+import { api } from '../../services/api';
 
 export function ProductForm({ product, onClose, onSave, categories }) {
     const [formData, setFormData] = useState({
@@ -13,6 +14,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
         stock: 'In Stock',
         points: ''
     });
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         if (product) {
@@ -34,11 +36,45 @@ export function ProductForm({ product, onClose, onSave, categories }) {
         e.preventDefault();
         onSave({
             ...formData,
-            ...formData,
             price: parseFloat(formData.price),
             originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
             points: formData.points ? parseInt(formData.points) : 0
         });
+    };
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setUploading(true);
+            try {
+                // Create a promise that rejects after 30 seconds
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Tiempo de espera agotado. Verifica tu conexión.')), 30000)
+                );
+
+                // Race between upload and timeout
+                const url = await Promise.race([
+                    api.storage.upload(file),
+                    timeoutPromise
+                ]);
+
+                console.log("Imagen subida con éxito. URL:", url);
+
+                if (!url) {
+                    throw new Error("La subida finalizó pero no se recibió una URL válida.");
+                }
+
+                setFormData(prev => {
+                    console.log("Actualizando formData con imagen:", url);
+                    return { ...prev, image: url };
+                });
+            } catch (error) {
+                alert(`Error al subir la imagen: ${error.message}`);
+                console.error("Error en handleImageUpload:", error);
+            } finally {
+                setUploading(false);
+            }
+        }
     };
 
     return (
@@ -86,7 +122,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                         </div>
                         <div style={{ flex: 1 }}>
                             <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>
-                                Precio Original ($) <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 'normal' }}>(Opcional, para ofertas)</span>
+                                Precio Original ($) <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 'normal' }}>(Opcional)</span>
                             </label>
                             <input
                                 type="number"
@@ -115,7 +151,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                             </select>
                         </div>
                         <div style={{ flex: 1 }}>
-                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Puntos de Recompensa</label>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Puntos</label>
                             <input
                                 type="number"
                                 value={formData.points}
@@ -157,23 +193,36 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                     </div>
 
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>URL de Imagen</label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input
-                                type="url"
-                                value={formData.image}
-                                onChange={e => setFormData({ ...formData, image: e.target.value })}
-                                placeholder="https://ejemplo.com/imagen.jpg"
-                                style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db' }}
-                            />
+                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.5rem' }}>Imagen del Producto</label>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    disabled={uploading}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', marginBottom: '0.5rem' }}
+                                />
+                                <input
+                                    type="url"
+                                    value={formData.image}
+                                    onChange={e => setFormData({ ...formData, image: e.target.value })}
+                                    placeholder="O pega una URL directa..."
+                                    disabled={uploading}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.85rem' }}
+                                />
+                            </div>
                             <div style={{
-                                width: '42px', height: '42px', borderRadius: '6px', backgroundColor: '#f3f4f6',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+                                width: '80px', height: '80px', borderRadius: '6px', backgroundColor: '#f3f4f6',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                                border: '1px solid #e5e7eb', position: 'relative'
                             }}>
-                                {formData.image ? (
+                                {uploading ? (
+                                    <Loader size={24} className="animate-spin" color="#3b82f6" />
+                                ) : formData.image ? (
                                     <img src={formData.image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : (
-                                    <ImageIcon size={20} color="#9ca3af" />
+                                    <ImageIcon size={24} color="#9ca3af" />
                                 )}
                             </div>
                         </div>
@@ -193,20 +242,22 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                         <button
                             type="button"
                             onClick={onClose}
-                            style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' }}
+                            disabled={uploading}
+                            style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer', opacity: uploading ? 0.5 : 1 }}
                         >
                             Cancelar
                         </button>
                         <button
                             type="submit"
+                            disabled={uploading}
                             style={{
                                 padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none',
-                                backgroundColor: '#3b82f6', color: 'white', fontWeight: '600', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', gap: '0.5rem'
+                                backgroundColor: '#3b82f6', color: 'white', fontWeight: '600', cursor: uploading ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: uploading ? 0.7 : 1
                             }}
                         >
-                            <Save size={18} />
-                            Guardar
+                            {uploading ? <Loader size={18} className="animate-spin" /> : <Save size={18} />}
+                            {uploading ? 'Subiendo...' : 'Guardar'}
                         </button>
                     </div>
                 </form>

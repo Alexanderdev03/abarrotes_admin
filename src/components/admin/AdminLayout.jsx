@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
     LayoutDashboard, Package, ShoppingBag, Users, Tag,
-    Image, Settings, LogOut, Menu, X, Layers, Monitor, List
+    Image, Settings, LogOut, Menu, X, Layers, Monitor, List, Store
 } from 'lucide-react';
 
-export function AdminLayout({ children, activeView, onViewChange, onLogout }) {
+export function AdminLayout({ children, activeView, onViewChange, onLogout, onExit }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     const menuItems = [
@@ -71,6 +71,26 @@ export function AdminLayout({ children, activeView, onViewChange, onLogout }) {
                 </nav>
 
                 <div style={{ padding: '1rem', borderTop: '1px solid #374151' }}>
+                    <button
+                        onClick={onExit}
+                        style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.75rem 1rem',
+                            backgroundColor: 'transparent',
+                            color: '#10b981',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            marginBottom: '0.5rem'
+                        }}
+                    >
+                        <Store size={20} />
+                        <span>Volver a la Tienda</span>
+                    </button>
                     <button
                         onClick={onLogout}
                         style={{

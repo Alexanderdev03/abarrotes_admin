@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, MoreVertical, Image as ImageIcon } from 'lucide-react';
-import { ProductService } from '../../services/products';
+import { Plus, Search, Edit, Trash2, Image as ImageIcon } from 'lucide-react';
+import { api } from '../../services/api';
 import { ProductForm } from './ProductForm';
 import { TableSkeleton } from '../common/Skeleton';
 import { EmptyState } from '../common/EmptyState';
@@ -9,36 +9,88 @@ export function AdminProducts() {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Server-Side Filter State
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [stockFilter, setStockFilter] = useState('all');
+
+    // Pagination State
+    const [lastVisible, setLastVisible] = useState(null);
+    const [pageStack, setPageStack] = useState([]);
+    const [hasMore, setHasMore] = useState(false);
+    const [isFirstPage, setIsFirstPage] = useState(true);
+    const [currentStartCursor, setCurrentStartCursor] = useState(null);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
 
-    // Pagination State
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
-
     useEffect(() => {
-        loadData();
+        loadCategories();
+        loadProducts();
     }, []);
 
-    // Reset pagination when filters change
+    // Reload when filters change (reset pagination)
     useEffect(() => {
-        setCurrentPage(1);
+        const timeoutId = setTimeout(() => {
+            resetAndLoad();
+        }, 500);
+        return () => clearTimeout(timeoutId);
     }, [searchTerm, selectedCategory, stockFilter]);
 
-    const loadData = async () => {
+    const loadCategories = async () => {
+        const cats = await api.products.getCategories();
+        setCategories(cats);
+    };
+
+    const resetAndLoad = () => {
+        setLastVisible(null);
+        setPageStack([]);
+        setIsFirstPage(true);
+        setCurrentStartCursor(null);
+        loadProducts(null);
+    };
+
+    const loadProducts = async (startAfterDoc = null) => {
         setLoading(true);
-        const [productsData, categoriesData] = await Promise.all([
-            ProductService.getAllProducts(),
-            ProductService.getAllCategories()
-        ]);
-        setProducts(productsData);
-        setCategories(categoriesData);
-        setLoading(false);
+        try {
+            const result = await api.products.getProductsPaginated({
+                limitPerPage: 10,
+                lastVisible: startAfterDoc,
+                searchTerm,
+                category: selectedCategory,
+                stockFilter
+            });
+
+            setProducts(result.products);
+            setLastVisible(result.lastVisible);
+            setHasMore(result.hasMore);
+        } catch (error) {
+            console.error("Error loading products:", error);
+            alert("Error al cargar productos. Intenta simplificar los filtros.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onNext = () => {
+        if (!lastVisible) return;
+        setPageStack(prev => [...prev, currentStartCursor]);
+        setCurrentStartCursor(lastVisible);
+        loadProducts(lastVisible);
+        setIsFirstPage(false);
+    };
+
+    const onPrevious = () => {
+        if (pageStack.length === 0) return;
+        const prevCursor = pageStack[pageStack.length - 1];
+        const newStack = pageStack.slice(0, -1);
+
+        setPageStack(newStack);
+        setCurrentStartCursor(prevCursor);
+        loadProducts(prevCursor);
+        if (newStack.length === 0) setIsFirstPage(true);
     };
 
     const handleCreate = () => {
@@ -53,55 +105,44 @@ export function AdminProducts() {
 
     const handleDelete = async (id) => {
         if (window.confirm('¿Estás seguro de eliminar este producto?')) {
-            await ProductService.deleteProduct(id);
-            loadData();
+            await api.products.delete(id);
+            resetAndLoad();
         }
     };
 
     const handleSave = async (productData) => {
         try {
             if (editingProduct) {
-                await ProductService.updateProduct(editingProduct.id, productData);
+                await api.products.update(editingProduct.id, productData);
             } else {
-                await ProductService.addProduct(productData);
+                await api.products.add(productData);
             }
             setIsModalOpen(false);
-            loadData();
+            resetAndLoad();
         } catch (error) {
             alert('Error al guardar el producto');
             console.error(error);
         }
     };
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (selectedCategory === '' || p.category === selectedCategory || (categories.find(c => c.id === p.category)?.name === selectedCategory)) &&
-        (stockFilter === 'all' ||
-            (stockFilter === 'low' && (p.stock || 0) < 5) ||
-            (stockFilter === 'out' && (p.stock || 0) === 0))
-    );
-
-    // Pagination Logic
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-
     return (
         <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             {/* Header */}
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>Productos</h2>
-                <button
-                    onClick={handleCreate}
-                    style={{
-                        backgroundColor: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1rem',
-                        borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '500'
-                    }}
-                >
-                    <Plus size={18} />
-                    Nuevo Producto
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={handleCreate}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem',
+                            backgroundColor: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px',
+                            cursor: 'pointer', fontSize: '0.875rem'
+                        }}
+                    >
+                        <Plus size={18} />
+                        Nuevo Producto
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -123,8 +164,7 @@ export function AdminProducts() {
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
                     style={{
-                        padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none',
-                        minWidth: '150px'
+                        padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', minWidth: '150px'
                     }}
                 >
                     <option value="">Todas las Categorías</option>
@@ -137,8 +177,7 @@ export function AdminProducts() {
                     value={stockFilter}
                     onChange={(e) => setStockFilter(e.target.value)}
                     style={{
-                        padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none',
-                        minWidth: '150px'
+                        padding: '0.5rem', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', minWidth: '150px'
                     }}
                 >
                     <option value="all">Todos los Stocks</option>
@@ -161,58 +200,66 @@ export function AdminProducts() {
                     </thead>
                     <tbody>
                         {loading ? (
-                            <TableSkeleton rows={5} columns={5} />
-                        ) : filteredProducts.length === 0 ? (
+                            <TableSkeleton columns={5} rows={5} />
+                        ) : products.length === 0 ? (
                             <tr>
                                 <td colSpan="5">
                                     <EmptyState
-                                        title="No hay productos"
-                                        message="No se encontraron productos con los filtros seleccionados."
-                                        actionLabel="Crear Producto"
-                                        onAction={handleCreate}
+                                        title="No se encontraron productos"
+                                        description="Intenta ajustar los filtros de búsqueda"
                                     />
                                 </td>
                             </tr>
                         ) : (
-                            currentProducts.map(product => (
-                                <tr key={product.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                    <td style={{ padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#f3f4f6', flexShrink: 0 }}>
-                                            {product.image ? (
-                                                <img src={product.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={20} color="#9ca3af" /></div>
-                                            )}
+                            products.map((product) => (
+                                <tr key={product.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                    <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        {product.image ? (
+                                            <img
+                                                src={product.image}
+                                                alt={product.name}
+                                                style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }}
+                                            />
+                                        ) : (
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <ImageIcon size={20} color="#9ca3af" />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <div style={{ fontWeight: '500', color: '#111827' }}>{product.name}</div>
+                                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                                {categories.find(c => c.id === product.category)?.name || product.category}
+                                            </div>
                                         </div>
-                                        <span style={{ fontWeight: '500', color: '#111827' }}>{product.name}</span>
                                     </td>
-                                    <td style={{ padding: '1rem 1.5rem', color: '#6b7280' }}>
-                                        <span style={{ padding: '0.25rem 0.75rem', backgroundColor: '#e5e7eb', borderRadius: '999px', fontSize: '0.85rem' }}>
-                                            {categories.find(c => c.id === product.category)?.name || product.category}
-                                        </span>
+                                    <td style={{ padding: '1rem', color: '#6b7280' }}>
+                                        ${parseFloat(product.price).toFixed(2)}
                                     </td>
-                                    <td style={{ padding: '1rem 1.5rem', fontWeight: '500', color: '#111827' }}>${product.price}</td>
-                                    <td style={{ padding: '1rem 1.5rem', color: '#6b7280' }}>
+                                    <td style={{ padding: '1rem' }}>
                                         <span style={{
-                                            color: (product.stock || 0) < 5 ? '#ef4444' : '#059669',
+                                            padding: '0.25rem 0.75rem',
+                                            borderRadius: '9999px',
+                                            fontSize: '0.875rem',
                                             fontWeight: '500',
-                                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                                            backgroundColor: (product.stock || 0) === 0 ? '#fee2e2' : (product.stock || 0) < 5 ? '#fef3c7' : '#d1fae5',
+                                            color: (product.stock || 0) === 0 ? '#991b1b' : (product.stock || 0) < 5 ? '#92400e' : '#065f46'
                                         }}>
-                                            {product.stock || 0}
-                                            {(product.stock || 0) < 5 && <span style={{ fontSize: '0.7rem', backgroundColor: '#fee2e2', color: '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>Bajo</span>}
+                                            {(product.stock || 0) === 0 ? 'Agotado' : (product.stock || 0) < 5 ? `Bajo (${product.stock})` : `In Stock (${product.stock})`}
                                         </span>
                                     </td>
-                                    <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                    <td style={{ padding: '1rem' }}>
+                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                             <button
                                                 onClick={() => handleEdit(product)}
-                                                style={{ padding: '0.25rem', border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280' }}
+                                                style={{ padding: '0.5rem', color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                title="Editar"
                                             >
                                                 <Edit size={18} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(product.id)}
-                                                style={{ padding: '0.25rem', border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444' }}
+                                                style={{ padding: '0.5rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                title="Eliminar"
                                             >
                                                 <Trash2 size={18} />
                                             </button>
@@ -225,42 +272,41 @@ export function AdminProducts() {
                 </table>
             </div>
 
-            {/* Pagination */}
-            {filteredProducts.length > 0 && (
-                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-                        Mostrando {indexOfFirstItem + 1} a {Math.min(indexOfLastItem, filteredProducts.length)} de {filteredProducts.length} productos
-                    </span>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                            style={{
-                                padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px',
-                                backgroundColor: currentPage === 1 ? '#f3f4f6' : 'white',
-                                color: currentPage === 1 ? '#9ca3af' : '#374151',
-                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            Anterior
-                        </button>
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages}
-                            style={{
-                                padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px',
-                                backgroundColor: currentPage === totalPages ? '#f3f4f6' : 'white',
-                                color: currentPage === totalPages ? '#9ca3af' : '#374151',
-                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            Siguiente
-                        </button>
-                    </div>
-                </div>
-            )}
+            {/* Pagination Controls */}
+            <div style={{ padding: '1rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                    onClick={onPrevious}
+                    disabled={isFirstPage || loading}
+                    style={{
+                        padding: '0.5rem 1rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        backgroundColor: isFirstPage ? '#f3f4f6' : 'white',
+                        color: isFirstPage ? '#9ca3af' : '#374151',
+                        cursor: isFirstPage ? 'not-allowed' : 'pointer'
+                    }}
+                >
+                    Anterior
+                </button>
+                <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                    {loading ? 'Cargando...' : `Mostrando ${products.length} productos`}
+                </span>
+                <button
+                    onClick={onNext}
+                    disabled={!hasMore || loading}
+                    style={{
+                        padding: '0.5rem 1rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        backgroundColor: !hasMore ? '#f3f4f6' : 'white',
+                        color: !hasMore ? '#9ca3af' : '#374151',
+                        cursor: !hasMore ? 'not-allowed' : 'pointer'
+                    }}
+                >
+                    Siguiente
+                </button>
+            </div>
 
-            {/* Product Form Modal */}
             {isModalOpen && (
                 <ProductForm
                     product={editingProduct}
