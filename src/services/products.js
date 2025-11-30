@@ -213,5 +213,25 @@ export const ProductService = {
       await new Promise(r => setTimeout(r, 100));
     }
     onLog(`🏁 Proceso finalizado. Exitosos: ${successCount}, Errores: ${errorCount}`);
+  },
+
+  deleteAllData: async () => {
+    try {
+      const productsRef = collection(db, "products");
+      const categoriesRef = collection(db, "categories");
+
+      const pSnapshot = await getDocs(productsRef);
+      const cSnapshot = await getDocs(categoriesRef);
+
+      const deletePromises = [];
+      pSnapshot.docs.forEach(doc => deletePromises.push(deleteDoc(doc.ref)));
+      cSnapshot.docs.forEach(doc => deletePromises.push(deleteDoc(doc.ref)));
+
+      await Promise.all(deletePromises);
+      return true;
+    } catch (error) {
+      console.error("Error deleting all data:", error);
+      throw error;
+    }
   }
 };

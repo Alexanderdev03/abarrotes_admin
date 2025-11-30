@@ -63,17 +63,17 @@ export function CheckoutModal({ onClose, onConfirm, total }) {
         }
 
         setIsProcessing(true);
-        setTimeout(() => {
-            onConfirm({
-                receiverName,
-                deliveryMethod,
-                address: deliveryMethod === 'delivery' ? finalAddress : 'Recoger en Tienda',
-                paymentMethod,
-                deliverySchedule,
-                coupon: appliedCoupon // Pass the applied coupon
-            });
-            setIsProcessing(false);
-        }, 1500);
+        // setTimeout(() => {
+        onConfirm({
+            receiverName,
+            deliveryMethod,
+            address: deliveryMethod === 'delivery' ? finalAddress : 'Recoger en Tienda',
+            paymentMethod,
+            deliverySchedule,
+            coupon: appliedCoupon // Pass the applied coupon
+        });
+        setIsProcessing(false);
+        // }, 1500);
     };
 
     // Calculate totals

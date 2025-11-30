@@ -1,7 +1,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Save, Bell, Shield, Database, Upload, Download, Clock, Palette, Image as ImageIcon } from 'lucide-react';
+import { Save, Bell, Shield, Database, Upload, Download, Clock, Palette, Image as ImageIcon, Trash2, AlertTriangle } from 'lucide-react';
 import { Toast } from '../Toast';
+import { ProductService } from '../../services/products';
 
 export function AdminSettings() {
     const fileInputRef = useRef(null);
@@ -339,6 +340,41 @@ export function AdminSettings() {
                         accept=".json"
                         style={{ display: 'none' }}
                     />
+                </div>
+
+                {/* Danger Zone */}
+                <div style={{ backgroundColor: '#fef2f2', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fee2e2' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <AlertTriangle size={20} color="#ef4444" />
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: '#991b1b' }}>Zona de Peligro</h3>
+                    </div>
+                    <p style={{ color: '#7f1d1d', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                        Estas acciones son destructivas y no se pueden deshacer. Ten cuidado.
+                    </p>
+
+                    <button
+                        onClick={async () => {
+                            if (window.confirm('¿ESTÁS SEGURO? Esto borrará TODOS los productos y categorías de la base de datos.')) {
+                                if (window.confirm('¿DE VERDAD? Esta acción es IRREVERSIBLE.')) {
+                                    try {
+                                        setToast({ message: 'Borrando datos...', type: 'info' });
+                                        await ProductService.deleteAllData();
+                                        setToast({ message: 'Base de datos limpiada correctamente', type: 'success' });
+                                    } catch (error) {
+                                        setToast({ message: 'Error al borrar datos', type: 'error' });
+                                    }
+                                }
+                            }
+                        }}
+                        style={{
+                            backgroundColor: '#ef4444', color: 'white', border: 'none',
+                            padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        <Trash2 size={18} />
+                        Borrar Toda la Base de Datos
+                    </button>
                 </div>
             </div>
         </div>

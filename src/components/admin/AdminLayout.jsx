@@ -3,9 +3,44 @@ import {
     LayoutDashboard, Package, ShoppingBag, Users, Tag,
     Image, Settings, LogOut, Menu, X, Layers, Monitor, List, Store
 } from 'lucide-react';
+import { useAuth } from '../../context/auth.jsx';
+
+const ADMIN_EMAIL = 'alexanderdayanperazacasanova@gmail.com';
 
 export function AdminLayout({ children, activeView, onViewChange, onLogout, onExit }) {
+    const { user } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+    if (!user || user.email !== ADMIN_EMAIL) {
+        return (
+            <div style={{
+                height: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f3f4f6',
+                color: '#374151'
+            }}>
+                <h1 style={{ marginBottom: '1rem' }}>Acceso Denegado</h1>
+                <p style={{ marginBottom: '2rem' }}>No tienes permisos para ver esta página.</p>
+                <button
+                    onClick={onExit}
+                    style={{
+                        padding: '0.75rem 1.5rem',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                    }}
+                >
+                    Volver a la Tienda
+                </button>
+            </div>
+        );
+    }
 
     const menuItems = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -134,14 +169,19 @@ export function AdminLayout({ children, activeView, onViewChange, onLogout, onEx
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#111827' }}>Admin User</div>
-                            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>admin@abarrotes.com</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#111827' }}>{user.name}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{user.email}</div>
                         </div>
                         <div style={{
                             width: '40px', height: '40px', borderRadius: '50%',
-                            backgroundColor: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            backgroundColor: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            overflow: 'hidden'
                         }}>
-                            <Users size={20} color="#6b7280" />
+                            {user.photoURL ? (
+                                <img src={user.photoURL} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                                <Users size={20} color="#6b7280" />
+                            )}
                         </div>
                     </div>
                 </header>

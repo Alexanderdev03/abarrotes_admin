@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ShoppingBasket, Apple, Milk, SprayCan, ChevronRight, Trash2, Plus, Minus, Dog, Pill, Croissant, Baby, Package, Clock, CheckCircle, ArrowUpDown, Heart, Search, MapPin, Share2 } from 'lucide-react';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -20,6 +20,8 @@ import { ProductSkeleton } from './components/ProductSkeleton';
 import { api } from './services/api';
 import { CombosGrid } from './components/CombosGrid';
 import { HomeView } from './components/HomeView';
+import { seedCategories } from './utils/seedCategories';
+import { AuthProvider, useAuth } from './context/auth.jsx';
 
 const iconMap = {
   ShoppingBasket, Apple, Milk, SprayCan, Dog, Pill, Croissant, Baby
@@ -67,10 +69,7 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const { user, logout } = useAuth();
   const [isScanning, setIsScanning] = useState(false);
   const [orders, setOrders] = useState(() => {
     const saved = localStorage.getItem('orders');
@@ -153,21 +152,8 @@ function App() {
     setToast({ message, type });
   };
 
-  const handleLogin = (name) => {
-    if (name) {
-      const role = name.toLowerCase() === 'admin' ? 'admin' : 'client';
-      const userData = { name, email: 'cliente@ejemplo.com', wallet: 0, role };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      showToast(`¡Bienvenido, ${name}!`);
-    }
-  };
-
-
-
   const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+    logout();
     setOrders([]);
     setCart([]);
     setFavorites([]);
@@ -196,7 +182,7 @@ function App() {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        showToast(`Cantidad actualizada: ${product.name}`);
+        showToast(`Cantidad actualizada: ${product.name} `);
         return prev.map(item =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -262,6 +248,7 @@ function App() {
     setSelectedSubcategory(null); // Reset subcategory when category changes
     setSearchQuery('');
     setActiveTab('home');
+    window.history.pushState({ view: 'categoria', nombre: categoryName }, '', '#categoria-' + categoryName);
   };
 
   const clearFilters = () => {
@@ -398,7 +385,7 @@ function App() {
     // WhatsApp Integration
     const phoneNumber = "9821041154"; // Replace with real number
     const itemsList = newOrder.items.map(item => `- ${item.name} x${item.quantity} ($${(item.price * item.quantity).toFixed(2)})`).join('\n');
-    const message = `¡Hola! Quiero realizar un pedido en Abarrotes Alex.\n\n*Pedido #${newOrder.id}*\n\n*Productos:*\n${itemsList}\n\n*Total: $${newOrder.total.toFixed(2)}*\n\n*Dirección de Entrega:*\n${details.address}\n\n*Método de Pago:*\n${details.paymentMethod === 'cash' ? 'Efectivo' : 'Tarjeta'}`;
+    const message = `¡Hola! Quiero realizar un pedido en Abarrotes Alex.\n\n * Pedido #${newOrder.id}*\n\n * Productos:*\n${itemsList} \n\n * Total: $${newOrder.total.toFixed(2)}*\n\n * Dirección de Entrega:*\n${details.address} \n\n * Método de Pago:*\n${details.paymentMethod === 'cash' ? 'Efectivo' : 'Tarjeta'} `;
 
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -450,18 +437,35 @@ function App() {
     setVisibleCount(20);
   }, [selectedCategory, selectedSubcategory, searchQuery]);
 
-  const filteredProducts = products
-    .filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory ? product.category === selectedCategory : true;
-      const matchesSubcategory = selectedSubcategory ? product.subcategory === selectedSubcategory : true;
-      return matchesSearch && matchesCategory && matchesSubcategory;
-    })
-    .sort((a, b) => {
+  const filteredProducts = useMemo(() => {
+    let result = products;
+
+    // 1. Search Filter (Global - Overrides Category)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return result.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // 2. Category Filter (Only if no search)
+    if (selectedCategory) {
+      result = result.filter(p => p.category === selectedCategory);
+    }
+
+    // 3. Subcategory Filter
+    if (selectedSubcategory) {
+      result = result.filter(p => p.subcategory === selectedSubcategory);
+    }
+
+    // 4. Sorting
+    return [...result].sort((a, b) => {
       if (sortOrder === 'asc') return a.price - b.price;
       if (sortOrder === 'desc') return b.price - a.price;
       return 0;
     });
+  }, [products, selectedCategory, selectedSubcategory, searchQuery, sortOrder]);
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
 
@@ -506,6 +510,13 @@ function App() {
       if (selectedProduct) {
         setSelectedProduct(null);
         return; // Stop here if we just closed a modal
+      }
+
+      // Handle Category Navigation
+      if (event.state && event.state.view === 'categoria') {
+        setSelectedCategory(event.state.nombre);
+        setActiveTab('home');
+        return;
       }
 
       // Handle Tab Navigation
@@ -567,7 +578,7 @@ function App() {
   }
 
   if (!user) {
-    return <LoginModal onLogin={handleLogin} />;
+    return <LoginModal />;
   }
 
   if (activeTab === 'admin') {
