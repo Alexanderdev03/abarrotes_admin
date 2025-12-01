@@ -164,6 +164,20 @@ export function ProductDetails({ product, products, onClose, onAdd, isFavorite, 
                     {product.name}
                 </h1>
 
+                {product.bonusPoints && (
+                    <div style={{
+                        fontSize: '0.9rem',
+                        color: '#e65100',
+                        fontWeight: 'bold',
+                        marginBottom: '1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}>
+                        <span>+{product.bonusPoints} Puntos Bonificación</span>
+                    </div>
+                )}
+
 
 
                 <div style={{ marginBottom: '2rem' }}>
@@ -268,7 +282,7 @@ export function ProductDetails({ product, products, onClose, onAdd, isFavorite, 
                 <button
                     className="btn-add"
                     onClick={(e) => {
-                        onAdd(product, e);
+                        onAdd(product);
                         onClose();
                     }}
                     style={{

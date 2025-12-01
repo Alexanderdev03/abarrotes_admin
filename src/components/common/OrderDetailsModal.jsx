@@ -111,7 +111,33 @@ export function OrderDetailsModal({ order, onClose }) {
                             </tbody>
                             <tfoot style={{ backgroundColor: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
                                 <tr>
-                                    <td colSpan="2" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: '600' }}>Total</td>
+                                    <td colSpan="2" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: '600' }}>Subtotal</td>
+                                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: '600' }}>
+                                        ${(order.subtotal || order.total).toFixed(2)}
+                                    </td>
+                                </tr>
+                                {order.coupon && (
+                                    <tr>
+                                        <td colSpan="2" style={{ padding: '0.75rem', textAlign: 'right', color: '#2e7d32' }}>
+                                            Cupón ({order.coupon.code})
+                                        </td>
+                                        <td style={{ padding: '0.75rem', textAlign: 'right', color: '#2e7d32' }}>
+                                            -${order.discountAmount ? order.discountAmount.toFixed(2) : order.coupon.discount.toFixed(2)}
+                                        </td>
+                                    </tr>
+                                )}
+                                {order.pointsUsed > 0 && (
+                                    <tr>
+                                        <td colSpan="2" style={{ padding: '0.75rem', textAlign: 'right', color: '#e65100' }}>
+                                            Puntos Usados ({order.pointsUsed})
+                                        </td>
+                                        <td style={{ padding: '0.75rem', textAlign: 'right', color: '#e65100' }}>
+                                            -${(order.pointsUsed * 0.10).toFixed(2)}
+                                        </td>
+                                    </tr>
+                                )}
+                                <tr>
+                                    <td colSpan="2" style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem' }}>Total</td>
                                     <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem' }}>
                                         ${order.total.toFixed(2)}
                                     </td>

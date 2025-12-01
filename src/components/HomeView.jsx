@@ -17,6 +17,7 @@ export function HomeView({
     selectedSubcategory,
     searchQuery,
     filteredProducts,
+    filteredCategories,
     visibleProducts,
     isLoading,
     visibleCount,
@@ -138,6 +139,7 @@ export function HomeView({
                                         isFavorite={favorites.some(fav => fav.id === product.id)}
                                         onToggleFavorite={() => toggleFavorite(product)}
                                         onClick={() => handleOpenProduct(product)}
+                                        priority={true}
                                     />
                                 </div>
                             ))}
@@ -183,6 +185,48 @@ export function HomeView({
                 </button>
             </div>
 
+            {/* Matching Categories Results */}
+            {searchQuery && filteredCategories && filteredCategories.length > 0 && (
+                <div style={{ marginBottom: '2rem' }}>
+                    <h4 style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Departamentos encontrados:</h4>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        {filteredCategories.map((cat, index) => {
+                            const Icon = iconMap[cat.icon] || ShoppingBasket;
+                            return (
+                                <div
+                                    key={index}
+                                    onClick={() => handleCategoryClick(cat.name)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        padding: '0.75rem 1rem',
+                                        backgroundColor: 'white',
+                                        borderRadius: '12px',
+                                        boxShadow: 'var(--shadow-sm)',
+                                        cursor: 'pointer',
+                                        border: '1px solid #eee'
+                                    }}
+                                >
+                                    <div style={{
+                                        backgroundColor: cat.color || '#eee',
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <Icon size={16} color="var(--color-primary-dark)" />
+                                    </div>
+                                    <span style={{ fontWeight: '600', color: '#333', fontSize: '0.9rem' }}>{cat.name}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {filteredProducts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
                     <p>No se encontraron productos.</p>
@@ -203,7 +247,7 @@ export function HomeView({
                                 <ProductSkeleton key={idx} />
                             ))
                         ) : (
-                            visibleProducts.map(product => (
+                            visibleProducts.map((product, index) => (
                                 <ProductCard
                                     key={product.id}
                                     product={product}
@@ -211,6 +255,7 @@ export function HomeView({
                                     isFavorite={favorites.some(fav => fav.id === product.id)}
                                     onToggleFavorite={() => toggleFavorite(product)}
                                     onClick={() => handleOpenProduct(product)}
+                                    priority={index < 4}
                                 />
                             ))
                         )}

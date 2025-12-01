@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { X, CreditCard, Banknote, MapPin, Clock } from 'lucide-react';
 
-export function CheckoutModal({ onClose, onConfirm, total, ...props }) {
+export function CheckoutModal({ onClose, onConfirm, total, initialCoupon, ...props }) {
     const [savedAddresses, setSavedAddresses] = useState(() => {
         const saved = localStorage.getItem('addresses');
         return saved ? JSON.parse(saved) : [];
     });
+    // ... (address state)
     const [selectedAddressIndex, setSelectedAddressIndex] = useState(() => {
         const saved = localStorage.getItem('addresses');
         const addresses = saved ? JSON.parse(saved) : [];
@@ -17,14 +18,19 @@ export function CheckoutModal({ onClose, onConfirm, total, ...props }) {
     });
     const [showAddressForm, setShowAddressForm] = useState(savedAddresses.length === 0);
     const [newAddress, setNewAddress] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [receiverName, setReceiverName] = useState(() => {
+        return localStorage.getItem('lastReceiverName') || (props.user ? props.user.name : '');
+    });
+    const [paymentMethod, setPaymentMethod] = useState(() => {
+        return localStorage.getItem('lastPaymentMethod') || 'cash';
+    });
     const [deliveryMethod, setDeliveryMethod] = useState('delivery'); // 'delivery', 'pickup'
     const [deliverySchedule, setDeliverySchedule] = useState('asap'); // 'asap', 'morning', 'afternoon'
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Coupon State
-    const [couponCode, setCouponCode] = useState('');
-    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [couponCode, setCouponCode] = useState(initialCoupon ? initialCoupon.code : '');
+    const [appliedCoupon, setAppliedCoupon] = useState(initialCoupon || null);
     const [couponError, setCouponError] = useState('');
 
     const handleSaveAddress = () => {
@@ -81,6 +87,10 @@ export function CheckoutModal({ onClose, onConfirm, total, ...props }) {
         if (deliveryMethod === 'delivery') {
             localStorage.setItem('lastUsedAddress', finalAddress);
         }
+
+        // Save preferences
+        localStorage.setItem('lastReceiverName', receiverName);
+        localStorage.setItem('lastPaymentMethod', paymentMethod);
 
         setIsProcessing(true);
         // setTimeout(() => {
@@ -148,6 +158,8 @@ export function CheckoutModal({ onClose, onConfirm, total, ...props }) {
                             Nombre de quien recibe
                         </label>
                         <input
+                            value={receiverName}
+                            onChange={(e) => setReceiverName(e.target.value)}
                             type="text"
                             required
                             placeholder="Tu nombre completo"
@@ -390,99 +402,25 @@ export function CheckoutModal({ onClose, onConfirm, total, ...props }) {
                         </div>
                     </div>
 
-                    {/* Coupon Section */}
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Cupón de Descuento</label>
-
-                        {/* Available Coupons Chips */}
-                        {(() => {
-                            const user = JSON.parse(localStorage.getItem('user') || '{}');
-                            const userCoupons = user.coupons || [];
-                            if (userCoupons.length > 0) {
-                                return (
-                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                                        {userCoupons.map((coupon, idx) => (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => {
-                                                    setCouponCode(coupon.code);
-                                                    setAppliedCoupon(coupon);
-                                                    setCouponError('');
-                                                }}
-                                                style={{
-                                                    padding: '0.25rem 0.75rem',
-                                                    backgroundColor: '#fff3e0',
-                                                    border: '1px solid #ff9800',
-                                                    borderRadius: '16px',
-                                                    color: '#e65100',
-                                                    fontSize: '0.75rem',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '4px'
-                                                }}
-                                            >
-                                                <span>🏷️</span>
-                                                <span>{coupon.code} (${coupon.discount})</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                );
-                            }
-                            return (
-                                <div style={{ marginBottom: '0.75rem', fontSize: '0.85rem', color: '#666', fontStyle: 'italic' }}>
-                                    No tienes cupones activos. Ve a tu Perfil para canjear puntos.
-                                </div>
-                            );
-                        })()}
-
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input
-                                type="text"
-                                value={couponCode}
-                                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                                placeholder="Ingresa tu código"
-                                style={{
-                                    flex: 1,
-                                    padding: '0.75rem',
-                                    borderRadius: '8px',
-                                    border: '1px solid #ddd',
-                                    textTransform: 'uppercase'
-                                }}
-                            />
-                            <button
-                                type="button"
-                                onClick={handleApplyCoupon}
-                                style={{
-                                    padding: '0.75rem 1rem',
-                                    backgroundColor: '#333',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontWeight: '600'
-                                }}
-                            >
-                                Aplicar
-                            </button>
-                        </div>
-                        {couponError && <p style={{ color: '#d32f2f', fontSize: '0.85rem', marginTop: '0.25rem' }}>{couponError}</p>}
-
-                        {appliedCoupon && (
+                    {/* Coupon Summary (Read Only) */}
+                    {appliedCoupon && (
+                        <div style={{ marginBottom: '1.5rem' }}>
                             <div className="flex-between" style={{
-                                marginTop: '0.5rem',
-                                padding: '0.5rem',
+                                padding: '0.75rem',
                                 backgroundColor: '#e8f5e9',
                                 borderRadius: '8px',
                                 color: '#2e7d32',
-                                fontSize: '0.9rem'
+                                fontSize: '0.9rem',
+                                border: '1px solid #c8e6c9'
                             }}>
-                                <span>Cupón aplicado: {appliedCoupon.code}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span>🏷️</span>
+                                    <span>Cupón aplicado: <strong>{appliedCoupon.code}</strong></span>
+                                </div>
                                 <span style={{ fontWeight: 'bold' }}>-${appliedCoupon.discount.toFixed(2)}</span>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     <div className="flex-between" style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>
                         <span>Total a Pagar</span>

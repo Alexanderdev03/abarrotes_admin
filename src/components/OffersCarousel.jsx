@@ -106,6 +106,8 @@ export function OffersCarousel() {
                             <img
                                 src={offer.imageUrl}
                                 alt={offer.title}
+                                loading={index === 0 ? "eager" : "lazy"}
+                                fetchPriority={index === 0 ? "high" : "auto"}
                                 style={{
                                     position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
                                     objectFit: 'cover', opacity: 0.6

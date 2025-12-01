@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createFuseInstance, processSearchQuery } from './utils/searchUtils';
 import { ShoppingBasket, Apple, Milk, SprayCan, ChevronRight, Trash2, Plus, Minus, Dog, Pill, Croissant, Baby, Package, Clock, CheckCircle, ArrowUpDown, Heart, Search, MapPin, Share2 } from 'lucide-react';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -23,7 +24,12 @@ import { CombosGrid } from './components/CombosGrid';
 import { HomeView } from './components/HomeView';
 import { seedCategories } from './utils/seedCategories';
 import { AuthProvider, useAuth } from './context/auth.jsx';
+
+import { CartProvider, useCart } from './context/cart.jsx';
+import { CartView } from './components/CartView';
+import { PointsView } from './components/PointsView';
 import { OrderService } from './services/orders';
+import { OrderSuccessModal } from './components/OrderSuccessModal';
 
 const iconMap = {
   ShoppingBasket, Apple, Milk, SprayCan, Dog, Pill, Croissant, Baby
@@ -37,19 +43,25 @@ function App() {
 
   const [pointValue, setPointValue] = useState(0.10);
   const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [storeSettings, setStoreSettings] = useState({});
+  const [rewardProducts, setRewardProducts] = useState([]);
 
   const loadData = async () => {
     try {
       const { ContentService } = await import('./services/content');
-      const [productsData, categoriesData, settingsData, couponsData] = await Promise.all([
+      const [productsData, categoriesData, settingsData, couponsData, rewardsData] = await Promise.all([
         api.products.getAll(),
         api.products.getCategories(),
         ContentService.getSettings(),
-        ContentService.getCoupons()
+        ContentService.getCoupons(),
+        ContentService.getRewardProducts()
       ]);
 
-      if (settingsData && settingsData.pointValue) {
-        setPointValue(Number(settingsData.pointValue));
+      if (settingsData) {
+        setStoreSettings(settingsData);
+        if (settingsData.pointValue) {
+          setPointValue(Number(settingsData.pointValue));
+        }
       }
 
       // Deduplicate products by ID to prevent key collisions
@@ -61,6 +73,7 @@ function App() {
       setProducts(uniqueProducts);
       setCategories(uniqueCategories);
       setAvailableCoupons(couponsData || []);
+      setRewardProducts(rewardsData || []);
     } catch (error) {
       console.error("Error loading data:", error);
       showToast('Error al cargar datos', 'error');
@@ -80,10 +93,23 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('home');
   const [adminView, setAdminView] = useState('dashboard');
-  const [cart, setCart] = useState(() => {
-    const saved = localStorage.getItem('cart');
-    return saved ? JSON.parse(saved) : [];
-  });
+
+  const {
+    cart,
+    setCart,
+    cartTotal,
+    cartCount,
+    addToCart,
+    addBulkToCart,
+    addComboToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    selectedBulkProduct,
+    closeBulkModal,
+    isCartAnimating
+  } = useCart();
+
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
@@ -92,7 +118,7 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
-  const [selectedBulkProduct, setSelectedBulkProduct] = useState(null);
+
   const { user, logout, setUser } = useAuth();
   const [isScanning, setIsScanning] = useState(false);
   const [orders, setOrders] = useState(() => {
@@ -118,10 +144,18 @@ function App() {
   const [sortOrder, setSortOrder] = useState(null); // null, 'asc', 'desc'
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [toast, setToast] = useState(null); // { message, type }
-  const [cartAnimating, setCartAnimating] = useState(false);
+
   const [pointsToUse, setPointsToUse] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20); // Initial load count
+
+  // Coupon State (Global for Cart and Checkout)
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+  // Order Success Modal State
+  const [showOrderSuccess, setShowOrderSuccess] = useState(false);
+  const [lastOrder, setLastOrder] = useState(null);
 
 
   // Reload data when switching to home tab to ensure freshness
@@ -131,15 +165,51 @@ function App() {
     }
   }, [activeTab]);
 
+  // Persist orders to localStorage
+  useEffect(() => {
+    localStorage.setItem('orders', JSON.stringify(orders));
+  }, [orders]);
+
   // ... (rest of the file)
 
+  const handleApplyCoupon = (codeToApply = couponCode) => {
+    const code = codeToApply.toUpperCase();
+    const userCoupons = user.coupons || [];
+    const adminCoupons = JSON.parse(localStorage.getItem('adminCoupons') || '[]');
+
+    // Check user coupons first
+    let validCoupon = userCoupons.find(c => c.code === code);
+
+    // If not found, check global admin coupons
+    if (!validCoupon) {
+      validCoupon = adminCoupons.find(c => c.code === code);
+    }
+
+    if (validCoupon) {
+      setAppliedCoupon(validCoupon);
+      setCouponCode(code); // Ensure input reflects applied code
+      showToast(`Cupón aplicado: ${code}`, 'success');
+    } else {
+      showToast('Cupón inválido o no encontrado', 'error');
+      setAppliedCoupon(null);
+    }
+  };
+
   const handleConfirmOrder = (details) => {
+    // ... (rest of function)
+    const couponDiscount = details.coupon ? details.coupon.discount : 0;
+    const subtotal = cart.reduce((acc, item) => acc + (item.isBulkSelection ? item.totalPrice : (item.price * item.quantity)), 0);
+    const total = Math.max(0, subtotal - (pointsToUse * pointValue) - couponDiscount);
+
     const newOrder = {
       id: Math.floor(Math.random() * 1000000),
       date: new Date().toLocaleDateString(),
       items: [...cart],
-      total: Math.max(0, cart.reduce((acc, item) => acc + (item.isBulkSelection ? item.totalPrice : (item.price * item.quantity)), 0) - (pointsToUse * pointValue)),
+      total: total,
+      subtotal: subtotal,
       pointsUsed: pointsToUse,
+      coupon: details.coupon || null,
+      discountAmount: couponDiscount,
       status: 'En camino'
     };
 
@@ -153,14 +223,26 @@ function App() {
       let userUpdated = false;
 
       // Handle Coupon Consumption
+      let updatedCoupons = currentUser.coupons || [];
+
+      // Remove general applied coupon
       if (details.coupon) {
-        // Filter by ID if available to remove specific coupon instance, otherwise by code
-        const updatedCoupons = (currentUser.coupons || []).filter(c => {
+        updatedCoupons = updatedCoupons.filter(c => {
           if (details.coupon.id && c.id) return c.id !== details.coupon.id;
           return c.code !== details.coupon.code;
         });
-        updatedUser = { ...updatedUser, coupons: updatedCoupons };
         userUpdated = true;
+      }
+
+      // Remove used product coupons
+      if (usedProductCoupons.length > 0) {
+        const usedIds = new Set(usedProductCoupons.map(c => c.id));
+        updatedCoupons = updatedCoupons.filter(c => !usedIds.has(c.id));
+        userUpdated = true;
+      }
+
+      if (userUpdated) {
+        updatedUser = { ...updatedUser, coupons: updatedCoupons };
       }
 
       // Handle Points Earned
@@ -196,8 +278,10 @@ function App() {
     setOrders(prev => [newOrder, ...prev]);
     setCart([]);
     setShowCheckout(false);
-    setActiveTab('profile'); // Redirect to profile to see the order
-    showToast('¡Pedido realizado con éxito!');
+    // setActiveTab('profile'); // Removed redirect to profile
+    // showToast('¡Pedido realizado con éxito!'); // Removed toast
+    setLastOrder(newOrder);
+    setShowOrderSuccess(true);
 
     // WhatsApp Integration
     const storeSettings = JSON.parse(localStorage.getItem('storeSettings') || '{}');
@@ -226,17 +310,52 @@ function App() {
     window.open(whatsappUrl, '_blank');
   };
 
-  const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
-  const cartTotal = cart.reduce((acc, item) => acc + (item.isBulkSelection ? item.totalPrice : (item.price * item.quantity)), 0);
+  // Calculate Product Coupons Discount and Identify Used Coupons
+  const { productCouponsDiscount, usedProductCoupons } = useMemo(() => {
+    let discount = 0;
+    let usedCoupons = [];
+    const userCoupons = user?.coupons || [];
+
+    cart.forEach(item => {
+      // Find all coupons for this product
+      const productCoupons = userCoupons.filter(c =>
+        c.type === 'product' &&
+        (c.code.includes(`PROD-${item.id}-`) || c.discount === item.name) // Match by ID pattern or Name
+      );
+
+      if (productCoupons.length > 0) {
+        // Determine how many to use
+        const quantityToDiscount = Math.min(productCoupons.length, item.quantity);
+
+        // Calculate discount value (assuming full price discount for "Free Product" coupons)
+        // If coupon has a specific value, use that. For now, assuming free product.
+        // We can check if coupon has 'value' property, otherwise use item.price.
+        // Based on previous code: discount: product.name (so it's a free product)
+
+        discount += quantityToDiscount * item.price;
+
+        // Mark coupons as used
+        usedCoupons = [...usedCoupons, ...productCoupons.slice(0, quantityToDiscount)];
+      }
+    });
+
+    return { productCouponsDiscount: discount, usedProductCoupons: usedCoupons };
+  }, [cart, user?.coupons]);
+
+  // Cart calculations moved to Context
   const discountAmount = pointsToUse * pointValue;
-  const finalTotal = Math.max(0, cartTotal - discountAmount);
+  const couponDiscount = appliedCoupon ? (appliedCoupon.type === 'product' ? 0 : appliedCoupon.discount) : 0;
+
+  // Update finalTotal to include product coupons discount
+  // Ensure we don't go below zero
+  const finalTotal = Math.max(0, cartTotal - discountAmount - couponDiscount - productCouponsDiscount);
 
   const totalSavings = cart.reduce((acc, item) => {
     if (item.originalPrice && item.originalPrice > item.price) {
       return acc + ((item.originalPrice - item.price) * item.quantity);
     }
     return acc;
-  }, 0);
+  }, 0) + productCouponsDiscount; // Add product coupons to total savings
 
   const handleShareCart = () => {
     if (cart.length === 0) return;
@@ -276,24 +395,21 @@ function App() {
     let result = products;
 
     // 1. Search Filter (Global - Overrides Category)
+    // 1. Search Filter (Global - Overrides Category)
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return result.filter(p =>
-        p.name.toLowerCase().includes(query) ||
-        p.description?.toLowerCase().includes(query) ||
-        p.category?.toLowerCase().includes(query) ||
-        p.subcategory?.toLowerCase().includes(query)
-      );
-    }
+      const processedQuery = processSearchQuery(searchQuery);
+      const fuse = createFuseInstance(products);
 
-    // 2. Category Filter (Only if no search)
-    if (selectedCategory) {
-      result = result.filter(p => p.category === selectedCategory);
-    }
-
-    // 3. Subcategory Filter
-    if (selectedSubcategory) {
-      result = result.filter(p => p.subcategory === selectedSubcategory);
+      const searchResults = fuse.search(processedQuery);
+      result = searchResults.map(r => r.item);
+    } else {
+      // Only apply category filter if no search query
+      if (selectedCategory) {
+        result = result.filter(product => product.category === selectedCategory);
+      }
+      if (selectedSubcategory) {
+        result = result.filter(product => product.subcategory === selectedSubcategory);
+      }
     }
 
     // 4. Sorting
@@ -303,6 +419,12 @@ function App() {
       return 0;
     });
   }, [products, selectedCategory, selectedSubcategory, searchQuery, sortOrder]);
+
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery) return [];
+    const processedQuery = processSearchQuery(searchQuery).toLowerCase();
+    return categories.filter(cat => cat.name.toLowerCase().includes(processedQuery));
+  }, [categories, searchQuery]);
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
 
@@ -319,6 +441,12 @@ function App() {
       setSearchQuery('');
     }
   }
+
+  const handleLogout = () => {
+    logout();
+    setActiveTab('home');
+    showToast('Sesión cerrada correctamente');
+  };
 
   // History API handling for Product Modal
   const handleOpenProduct = (product) => {
@@ -419,62 +547,13 @@ function App() {
     }
   }
 
-  const addToCart = (product, quantity = 1) => {
-    setCart(prevCart => {
-      const existingItemIndex = prevCart.findIndex(item => item.id === product.id && !item.isBulkSelection);
-      if (existingItemIndex >= 0) {
-        const newCart = [...prevCart];
-        newCart[existingItemIndex] = {
-          ...newCart[existingItemIndex],
-          quantity: newCart[existingItemIndex].quantity + quantity
-        };
-        return newCart;
-      } else {
-        return [...prevCart, { ...product, quantity }];
-      }
-    });
-    setCartAnimating(true);
-    setTimeout(() => setCartAnimating(false), 300);
-    showToast(`Agregado: ${product.name}`);
-  };
+  // addToCart moved to Context
 
-  const handleBulkAddToCart = (product, quantity, unit, notes, totalPrice) => {
-    const cartItem = {
-      ...product,
-      id: `${product.id}-${Date.now()}`, // Unique ID for bulk items
-      cartQuantity: quantity,
-      cartUnit: unit,
-      notes: notes,
-      totalPrice: totalPrice,
-      quantity: 1, // Treat as 1 unit in cart list
-      isBulkSelection: true,
-      name: `${product.name} (${quantity} ${unit})`
-    };
+  // handleBulkAddToCart moved to Context
 
-    setCart(prev => [...prev, cartItem]);
-    setSelectedBulkProduct(null);
-    showToast('Producto a granel agregado');
-    setCartAnimating(true);
-    setTimeout(() => setCartAnimating(false), 300);
-  };
+  // handleAddCombo moved to Context
 
-  const handleAddCombo = (combo) => {
-    const comboItem = {
-      ...combo,
-      id: `${combo.id}-${Date.now()}`, // Unique ID
-      quantity: 1,
-      isCombo: true
-    };
-    setCart(prev => [...prev, comboItem]);
-    showToast(`Combo agregado: ${combo.name}`);
-    setCartAnimating(true);
-    setTimeout(() => setCartAnimating(false), 300);
-  };
-
-  const removeFromCart = (productId, index) => {
-    setCart(prev => prev.filter((_, i) => i !== index));
-    showToast('Producto eliminado del carrito');
-  };
+  // removeFromCart moved to Context
 
   const handleCategoryClick = (categoryName) => {
     setSelectedCategory(categoryName);
@@ -578,8 +657,8 @@ function App() {
       {selectedBulkProduct && (
         <BulkProductModal
           product={selectedBulkProduct}
-          onClose={() => setSelectedBulkProduct(null)}
-          onAdd={handleBulkAddToCart}
+          onClose={closeBulkModal}
+          onAdd={addBulkToCart}
         />
       )}
       {isScanning && <BarcodeScanner onScan={handleScan} onClose={() => setIsScanning(false)} />}
@@ -589,6 +668,8 @@ function App() {
         userName={user ? user.name : null}
         onOpenScanner={() => setIsScanning(true)}
         products={products}
+        categories={categories}
+        onCategorySelect={handleCategoryClick}
         onProductSelect={handleOpenProduct}
       />
 
@@ -600,6 +681,7 @@ function App() {
             selectedSubcategory={selectedSubcategory}
             searchQuery={searchQuery}
             filteredProducts={filteredProducts}
+            filteredCategories={filteredCategories}
             visibleProducts={visibleProducts}
             isLoading={isLoading}
             visibleCount={visibleCount}
@@ -615,12 +697,12 @@ function App() {
             sortOrder={sortOrder}
             setSortOrder={setSortOrder}
             bestSellers={bestSellers}
-            handleAddCombo={handleAddCombo}
+            handleAddCombo={addComboToCart}
           />
         )}
 
         {activeTab === 'combos' && (
-          <CombosGrid onAddCombo={handleAddCombo} onBack={() => handleTabChange('home')} />
+          <CombosGrid onAddCombo={addComboToCart} onBack={() => handleTabChange('home')} />
         )}
 
         {activeTab === 'categories' && (
@@ -669,325 +751,37 @@ function App() {
         )}
 
         {activeTab === 'cart' && (
-          <div>
-            <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0 }}>Tu Carrito</h2>
-              {cart.length > 0 && !isSavingList && (
-                <button
-                  onClick={startSaveList}
-                  style={{
-                    background: 'none',
-                    border: '1px solid var(--color-primary)',
-                    color: 'var(--color-primary)',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '20px',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Guardar lista
-                </button>
-              )}
-            </div>
-
-            {/* Save List Input UI */}
-            {isSavingList && (
-              <div style={{
-                marginBottom: '1.5rem',
-                backgroundColor: 'white',
-                padding: '1rem',
-                borderRadius: '12px',
-                boxShadow: 'var(--shadow-sm)',
-                animation: 'slideDown 0.3s ease-out'
-              }}>
-                <h4 style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Nombre de la lista:</h4>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input
-                    type="text"
-                    value={newListName}
-                    onChange={(e) => setNewListName(e.target.value)}
-                    placeholder="Ej. Despensa Semanal"
-                    autoFocus
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem',
-                      borderRadius: '8px',
-                      border: '1px solid #ccc'
-                    }}
-                  />
-                  <button
-                    onClick={confirmSaveList}
-                    style={{
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      border: 'none',
-                      padding: '0.5rem 1rem',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    Guardar
-                  </button>
-                  <button
-                    onClick={cancelSaveList}
-                    style={{
-                      backgroundColor: '#f5f5f5',
-                      color: '#666',
-                      border: 'none',
-                      padding: '0.5rem',
-                      borderRadius: '8px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            )}
-
-
-
-            {cart.length === 0 ? (
-              <div style={{ textAlign: 'center', marginTop: '3rem', color: '#888' }}>
-                <ShoppingBasket size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                <p>Tu carrito está vacío</p>
-                <button
-                  className="btn btn-primary"
-                  style={{ marginTop: '1rem', width: 'auto' }}
-                  onClick={() => setActiveTab('home')}
-                >
-                  Ir a comprar
-                </button>
-              </div>
-            ) : (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {cart.map((item, index) => (
-                    <div key={index} style={{
-                      backgroundColor: 'white',
-                      padding: '1rem',
-                      borderRadius: 'var(--radius)',
-                      boxShadow: 'var(--shadow-sm)',
-                      display: 'flex',
-                      gap: '1rem'
-                    }}>
-                      <div style={{ width: '80px', height: '80px', backgroundColor: '#f9f9f9', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {item.image ? (
-                          <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <ShoppingBasket size={32} color="#ccc" />
-                        )}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                          <h4 style={{ margin: 0, fontSize: '1rem' }}>{item.name}</h4>
-                          <button
-                            onClick={() => removeFromCart(item.id, index)}
-                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-
-                        {item.isBulkSelection ? (
-                          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>
-                            <div>
-                              {item.cartQuantity} {item.cartUnit}
-                              {item.cartUnit === 'pz' && item.averageWeight && ` (~${(item.cartQuantity * item.averageWeight).toFixed(3)} kg)`}
-                            </div>
-                            {item.notes && (
-                              <div style={{ fontSize: '0.85rem', fontStyle: 'italic', color: '#888', marginTop: '2px' }}>
-                                Nota: "{item.notes}"
-                              </div>
-                            )}
-                            <div style={{ fontWeight: 'bold', color: 'var(--color-primary)', marginTop: '4px' }}>
-                              ${(item.totalPrice || 0).toFixed(2)}
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{ color: 'var(--color-primary)', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                              ${Number(item.price || 0).toFixed(2)}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                              <button
-                                onClick={() => updateQuantity(index, -1)}
-                                style={{
-                                  width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #ddd',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white'
-                                }}
-                              >
-                                <Minus size={16} />
-                              </button>
-                              <span style={{ fontWeight: '600' }}>{item.quantity}</span>
-                              <button
-                                onClick={() => updateQuantity(index, 1)}
-                                style={{
-                                  width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #ddd',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white'
-                                }}
-                              >
-                                <Plus size={16} />
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Coupon */}
-                <div style={{ marginTop: '2rem', backgroundColor: 'white', padding: '1rem', borderRadius: 'var(--radius)' }}>
-                  <h4 style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Cupón de descuento</h4>
-                  <div className="flex-between" style={{ gap: '0.5rem' }}>
-                    <input
-                      type="text"
-                      placeholder="EJ. ALEX10"
-                      style={{
-                        flex: 1,
-                        padding: '0.75rem',
-                        border: '1px solid #ddd',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem'
-                      }}
-                    />
-                    <button style={{
-                      backgroundColor: '#2c3e50',
-                      color: 'white',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '8px',
-                      fontWeight: 'bold',
-                      fontSize: '0.9rem'
-                    }}>
-                      Aplicar
-                    </button>
-                  </div>
-                </div>
-
-                {/* Summary */}
-                <div style={{ marginTop: '1rem', backgroundColor: 'white', padding: '1rem', borderRadius: 'var(--radius)' }}>
-                  <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
-                    <span style={{ color: '#666' }}>Subtotal</span>
-                    <span>${cartTotal.toFixed(2)}</span>
-                  </div>
-                  {totalSavings > 0 && (
-                    <div className="flex-between" style={{ marginBottom: '0.5rem', color: 'var(--color-accent)', fontWeight: 'bold' }}>
-                      <span>Ahorro Total</span>
-                      <span>-${totalSavings.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex-between" style={{ marginBottom: '1rem' }}>
-                    <span style={{ color: '#666' }}>Envío</span>
-                    <span className="text-primary" style={{ fontWeight: 'bold' }}>Por confirmar</span>
-                  </div>
-
-                  {/* Points Redemption */}
-                  {user.wallet > 0 && (
-                    <div style={{ marginTop: '1rem', backgroundColor: 'white', padding: '1rem', borderRadius: 'var(--radius)' }}>
-                      <h4 style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Usar Puntos (Saldo: {user.wallet})</h4>
-                      <div className="flex-between" style={{ gap: '0.5rem' }}>
-                        <input
-                          type="range"
-                          min="0"
-                          max={Math.min(user.wallet, cartTotal * 10)} // Max usage limited by total
-                          value={pointsToUse}
-                          onChange={(e) => setPointsToUse(parseInt(e.target.value))}
-                          style={{ flex: 1 }}
-                        />
-                        <span style={{ fontWeight: 'bold', minWidth: '60px', textAlign: 'right' }}>
-                          -${(pointsToUse * 0.1).toFixed(2)}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-                        Usando {pointsToUse} puntos
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex-between" style={{ borderTop: '1px solid #eee', paddingTop: '1rem', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Total</span>
-                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>${finalTotal.toFixed(2)}</span>
-                  </div>
-
-                  <button
-                    onClick={() => setShowCheckout(true)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: 'var(--color-secondary)',
-                      color: 'var(--color-primary)',
-                      padding: '1rem',
-                      borderRadius: 'var(--radius-pill)',
-                      border: 'none',
-                      fontSize: '1.1rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(255, 215, 0, 0.3)'
-                    }}
-                  >
-                    Realizar Pedido
-                  </button>
-                </div>
-              </>
-            )}
-            {/* Saved Lists Section (Moved to bottom) */}
-            {savedLists.length > 0 && (
-              <div style={{ marginTop: '2rem', marginBottom: '2rem', borderTop: '1px solid #eee', paddingTop: '2rem' }}>
-                <h3 style={{ fontSize: '1rem', color: '#666', marginBottom: '1rem' }}>Mis Listas Guardadas</h3>
-                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                  {savedLists.map(list => (
-                    <div key={list.id} style={{
-                      minWidth: '200px',
-                      backgroundColor: 'white',
-                      padding: '1rem',
-                      borderRadius: '12px',
-                      boxShadow: 'var(--shadow-sm)',
-                      border: '1px solid #eee'
-                    }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{list.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem' }}>
-                        {list.items.length} artículos • {list.date}
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => loadList(list)}
-                          style={{
-                            flex: 1,
-                            padding: '0.5rem',
-                            backgroundColor: 'var(--color-primary)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Cargar
-                        </button>
-                        <button
-                          onClick={() => deleteList(list.id)}
-                          style={{
-                            padding: '0.5rem',
-                            backgroundColor: '#ffebee',
-                            color: '#d32f2f',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )
-        }
+          <CartView
+            cart={cart}
+            cartTotal={cartTotal}
+            isSavingList={isSavingList}
+            startSaveList={startSaveList}
+            newListName={newListName}
+            setNewListName={setNewListName}
+            onConfirmSaveList={saveList}
+            cancelSaveList={cancelSaveList}
+            removeFromCart={removeFromCart}
+            updateQuantity={updateQuantity}
+            user={user}
+            handleApplyCoupon={handleApplyCoupon}
+            appliedCoupon={appliedCoupon}
+            couponCode={couponCode}
+            setCouponCode={setCouponCode}
+            totalSavings={totalSavings}
+            productCouponsDiscount={productCouponsDiscount}
+            usedProductCoupons={usedProductCoupons}
+            pointsToUse={pointsToUse}
+            setPointsToUse={setPointsToUse}
+            pointValue={pointValue}
+            couponDiscount={couponDiscount}
+            finalTotal={finalTotal}
+            setShowCheckout={setShowCheckout}
+            savedLists={savedLists}
+            loadList={loadList}
+            deleteList={deleteList}
+            setActiveTab={setActiveTab}
+          />
+        )}
 
         {
           activeTab === 'profile' && (
@@ -1006,129 +800,19 @@ function App() {
             />
           )
         }
-        {
-          activeTab === 'points' && (
-            <div style={{ padding: '1rem' }}>
-              <h2 style={{ marginBottom: '1.5rem' }}>Mis Puntos y Cupones</h2>
-
-              {/* Wallet & Loyalty Section */}
-              <div style={{
-                backgroundColor: 'var(--color-primary)',
-                color: 'white',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                marginBottom: '1.5rem',
-                position: 'relative',
-                overflow: 'hidden',
-                boxShadow: 'var(--shadow-md)'
-              }}>
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.5rem' }}>Monedero Electrónico</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-                    {user.wallet || 0} pts
-                  </div>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
-                    Equivale a ${(user.wallet * pointValue).toFixed(2)} MXN
-                  </div>
-                </div>
-
-                {/* Decorative circles */}
-                <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                <div style={{ position: 'absolute', bottom: '-30px', left: '-10px', width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              </div>
-
-              {/* Rewards Center */}
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Centro de Recompensas 🎁</h3>
-
-                {/* Coupons Exchange */}
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: '#666' }}>Canjea tus puntos por cupones</h4>
-                  <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                    {availableCoupons.filter(c => c.points > 0).length === 0 ? (
-                      <div style={{ padding: '1rem', color: '#666', fontStyle: 'italic' }}>No hay cupones canjeables disponibles en este momento.</div>
-                    ) : (
-                      availableCoupons.filter(c => c.points > 0).map((coupon, idx) => (
-                        <div key={idx} style={{
-                          minWidth: '200px',
-                          backgroundColor: 'white',
-                          padding: '1rem',
-                          borderRadius: '12px',
-                          border: '1px dashed var(--color-primary)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          textAlign: 'center'
-                        }}>
-                          <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
-                            ${coupon.discount} MXN
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem' }}>
-                            por {coupon.points} puntos
-                          </div>
-                          <button
-                            onClick={() => {
-                              if ((user.wallet || 0) >= coupon.points) {
-                                const updatedUser = {
-                                  ...user,
-                                  wallet: user.wallet - coupon.points,
-                                  coupons: [...(user.coupons || []), { ...coupon, id: Date.now() }]
-                                };
-                                setUser(updatedUser);
-                                localStorage.setItem('user', JSON.stringify(updatedUser));
-                                showToast(`¡Cupón de $${coupon.discount} canjeado!`);
-                              } else {
-                                showToast('Puntos insuficientes', 'error');
-                              }
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              backgroundColor: (user.wallet || 0) >= coupon.points ? 'var(--color-primary)' : '#ccc',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              cursor: (user.wallet || 0) >= coupon.points ? 'pointer' : 'not-allowed',
-                              fontSize: '0.9rem',
-                              fontWeight: '600'
-                            }}
-                          >
-                            Canjear
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* My Coupons */}
-                <div>
-                  <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: '#666' }}>Mis Cupones Activos</h4>
-                  {(!user.coupons || user.coupons.length === 0) ? (
-                    <p style={{ fontSize: '0.9rem', color: '#999', fontStyle: 'italic' }}>No tienes cupones activos.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {user.coupons.map((coupon, idx) => (
-                        <div key={idx} className="flex-between" style={{
-                          backgroundColor: '#fff3e0',
-                          padding: '0.75rem 1rem',
-                          borderRadius: '8px',
-                          borderLeft: '4px solid #ff9800'
-                        }}>
-                          <div>
-                            <div style={{ fontWeight: 'bold', color: '#e65100' }}>Cupón ${coupon.discount} MXN</div>
-                            <div style={{ fontSize: '0.8rem', color: '#666' }}>Código: {coupon.code}</div>
-                          </div>
-                          <span style={{ fontSize: '1.5rem' }}>🎟️</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        }
+        {activeTab === 'points' && (
+          <PointsView
+            user={user}
+            pointValue={pointValue}
+            rewardProducts={rewardProducts}
+            availableCoupons={availableCoupons}
+            onUpdateUser={(updatedUser) => {
+              setUser(updatedUser);
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+            }}
+            showToast={showToast}
+          />
+        )}
         {
           activeTab === 'admin' && (
             <AdminLayout activeView={adminView} onViewChange={setAdminView} onLogout={() => setActiveTab('home')}>
@@ -1147,7 +831,7 @@ function App() {
         }
       </main >
 
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} cartCount={cartCount} isAnimating={cartAnimating} user={user} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} cartCount={cartCount} isAnimating={isCartAnimating} user={user} />
 
       {/* Product Details Modal */}
       {
@@ -1178,10 +862,26 @@ function App() {
       {
         showCheckout && (
           <CheckoutModal
+            total={finalTotal}
             onClose={() => setShowCheckout(false)}
             onConfirm={handleConfirmOrder}
-            total={cartTotal}
-            deliveryCost={JSON.parse(localStorage.getItem('storeSettings') || '{}').deliveryCost || 0}
+            deliveryCost={storeSettings.deliveryCost || 15}
+            initialCoupon={appliedCoupon}
+          />
+        )
+      }
+
+      {/* Order Success Modal */}
+      {
+        showOrderSuccess && lastOrder && (
+          <OrderSuccessModal
+            order={lastOrder}
+            onClose={() => {
+              setShowOrderSuccess(false);
+              setLastOrder(null);
+              setSearchQuery(''); // Clear search query
+              setActiveTab('home'); // Redirect to home after closing success modal
+            }}
           />
         )
       }
@@ -1239,4 +939,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWrapper() {
+  return (
+    <CartProvider>
+      <App />
+    </CartProvider>
+  );
+}
+
+export default AppWrapper;

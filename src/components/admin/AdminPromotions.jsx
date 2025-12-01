@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Tag, Zap, Trash2, Plus, Edit } from 'lucide-react';
+import { Save, Tag, Zap, Trash2, Plus, Edit, Gift } from 'lucide-react';
 import { ProductService } from '../../services/products';
 import { ConfirmationModal } from '../ConfirmationModal';
 
@@ -9,6 +9,10 @@ export function AdminPromotions() {
     const [coupons, setCoupons] = useState([]);
     const [newCoupon, setNewCoupon] = useState({ code: '', discount: '', points: '' });
     const [editingCoupon, setEditingCoupon] = useState(null);
+
+    // Reward Products State
+    const [rewardProducts, setRewardProducts] = useState([]);
+    const [newRewardProduct, setNewRewardProduct] = useState({ name: '', points: '', image: '', originalId: null });
 
     // Confirmation Modal State
     const [modalConfig, setModalConfig] = useState({
@@ -33,6 +37,9 @@ export function AdminPromotions() {
             const { ContentService } = await import('../../services/content');
             const couponsData = await ContentService.getCoupons();
             setCoupons(couponsData);
+
+            const rewardsData = await ContentService.getRewardProducts();
+            setRewardProducts(rewardsData);
         } catch (error) {
             console.error("Error loading data:", error);
         }
@@ -112,6 +119,46 @@ export function AdminPromotions() {
                     }
                 } catch (error) {
                     alert('Error al eliminar el cupón');
+                }
+            }
+        });
+    };
+
+    const handleAddRewardProduct = async (e) => {
+        e.preventDefault();
+        if (!newRewardProduct.name || !newRewardProduct.points) return;
+
+        try {
+            const { ContentService } = await import('../../services/content');
+            await ContentService.addRewardProduct({
+                name: newRewardProduct.name,
+                points: Number(newRewardProduct.points),
+                image: newRewardProduct.image || 'https://via.placeholder.com/150',
+                originalId: newRewardProduct.originalId || null
+            });
+            alert('Producto de recompensa agregado');
+            setNewRewardProduct({ name: '', points: '', image: '', originalId: null });
+            loadData();
+        } catch (error) {
+            console.error(error);
+            alert('Error al agregar producto');
+        }
+    };
+
+    const handleDeleteRewardProduct = (id) => {
+        setModalConfig({
+            isOpen: true,
+            title: '¿Eliminar producto?',
+            message: '¿Estás seguro de eliminar este producto de recompensa?',
+            isDanger: true,
+            confirmText: 'Sí, eliminar',
+            onConfirm: async () => {
+                try {
+                    const { ContentService } = await import('../../services/content');
+                    await ContentService.deleteRewardProduct(id);
+                    loadData();
+                } catch (error) {
+                    alert('Error al eliminar producto');
                 }
             }
         });
@@ -281,6 +328,123 @@ export function AdminPromotions() {
                             )}
                         </tbody>
                     </table>
+                </div>
+            </div>
+            {/* Reward Products Section */}
+            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Gift size={20} color="#8b5cf6" />
+                    Productos de Recompensa
+                </h3>
+
+                {/* Add Reward Product Form */}
+                <form onSubmit={handleAddRewardProduct} style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.5rem' }}>Seleccionar Producto</label>
+                        <select
+                            value={newRewardProduct.name}
+                            onChange={e => {
+                                const selectedProduct = products.find(p => p.name === e.target.value);
+                                if (selectedProduct) {
+                                    setNewRewardProduct({
+                                        ...newRewardProduct,
+                                        name: selectedProduct.name,
+                                        image: selectedProduct.image,
+                                        originalId: selectedProduct.id // Store original ID for reference
+                                    });
+                                } else {
+                                    setNewRewardProduct({ ...newRewardProduct, name: e.target.value });
+                                }
+                            }}
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                        >
+                            <option value="">-- Seleccionar --</option>
+                            {products.map(p => (
+                                <option key={p.id} value={p.name}>{p.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div style={{ width: '150px' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.5rem' }}>Costo en Puntos</label>
+                        <input
+                            type="number"
+                            placeholder="0"
+                            value={newRewardProduct.points}
+                            onChange={e => setNewRewardProduct({ ...newRewardProduct, points: e.target.value })}
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                        />
+                    </div>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.5rem' }}>URL de Imagen</label>
+                        <input
+                            type="text"
+                            placeholder="https://..."
+                            value={newRewardProduct.image}
+                            onChange={e => setNewRewardProduct({ ...newRewardProduct, image: e.target.value })}
+                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        style={{
+                            backgroundColor: '#8b5cf6', color: 'white', border: 'none',
+                            padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', height: '46px'
+                        }}
+                    >
+                        <Plus size={18} />
+                        Agregar
+                    </button>
+                </form>
+
+                {/* Reward Products List */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                    {rewardProducts.length === 0 ? (
+                        <div style={{ gridColumn: '1/-1', padding: '2rem', textAlign: 'center', color: '#9ca3af', border: '1px dashed #e5e7eb', borderRadius: '8px' }}>
+                            No hay productos de recompensa configurados
+                        </div>
+                    ) : (
+                        rewardProducts.map(product => (
+                            <div key={product.id} style={{
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                padding: '1rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                textAlign: 'center',
+                                position: 'relative'
+                            }}>
+                                <button
+                                    onClick={() => handleDeleteRewardProduct(product.id)}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '8px',
+                                        right: '8px',
+                                        background: '#fee2e2',
+                                        color: '#ef4444',
+                                        border: 'none',
+                                        borderRadius: '50%',
+                                        width: '28px',
+                                        height: '28px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                                <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '0.5rem' }}
+                                />
+                                <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.9rem' }}>{product.name}</h4>
+                                <div style={{ color: '#8b5cf6', fontWeight: 'bold' }}>{product.points} pts</div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

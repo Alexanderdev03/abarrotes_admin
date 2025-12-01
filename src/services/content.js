@@ -175,5 +175,39 @@ export const ContentService = {
             console.error("Error saving settings:", error);
             throw error;
         }
+    },
+
+    // --- Reward Products ---
+    getRewardProducts: async () => {
+        try {
+            const querySnapshot = await getDocs(collection(db, "reward_products"));
+            return querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+        } catch (error) {
+            console.error("Error fetching reward products:", error);
+            return [];
+        }
+    },
+
+    addRewardProduct: async (productData) => {
+        try {
+            const docRef = await addDoc(collection(db, "reward_products"), productData);
+            return { id: docRef.id, ...productData };
+        } catch (error) {
+            console.error("Error adding reward product:", error);
+            throw error;
+        }
+    },
+
+    deleteRewardProduct: async (id) => {
+        try {
+            await deleteDoc(doc(db, "reward_products", id));
+            return true;
+        } catch (error) {
+            console.error("Error deleting reward product:", error);
+            throw error;
+        }
     }
 };

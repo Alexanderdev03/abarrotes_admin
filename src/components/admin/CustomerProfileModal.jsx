@@ -1,7 +1,12 @@
-import React from 'react';
-import { X, User, ShoppingBag, Calendar, DollarSign, Award, Package } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, User, ShoppingBag, Calendar, DollarSign, Award, Package, Save, Trash2, Edit2 } from 'lucide-react';
+import { UserService } from '../../services/users';
 
-export function CustomerProfileModal({ customer, onClose, orderHistory = [] }) {
+export function CustomerProfileModal({ customer, onClose, orderHistory = [], onUpdate }) {
+    const [isEditingWallet, setIsEditingWallet] = useState(false);
+    const [walletAmount, setWalletAmount] = useState(customer?.wallet || 0);
+    const [updating, setUpdating] = useState(false);
+
     if (!customer) return null;
 
     // Calculate metrics
@@ -21,6 +26,33 @@ export function CustomerProfileModal({ customer, onClose, orderHistory = [] }) {
     });
     const favoriteProduct = Object.entries(productCounts).sort((a, b) => b[1] - a[1])[0];
 
+    const handleUpdateWallet = async () => {
+        setUpdating(true);
+        try {
+            await UserService.updateWallet(customer.email, walletAmount);
+            setIsEditingWallet(false);
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            alert('Error al actualizar puntos');
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    const handleRemoveCoupon = async (couponCode) => {
+        if (!confirm(`¿Estás seguro de eliminar el cupón ${couponCode}?`)) return;
+
+        setUpdating(true);
+        try {
+            await UserService.removeCoupon(customer.email, couponCode);
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            alert('Error al eliminar cupón');
+        } finally {
+            setUpdating(false);
+        }
+    };
+
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -28,7 +60,7 @@ export function CustomerProfileModal({ customer, onClose, orderHistory = [] }) {
             zIndex: 1000, padding: '1rem'
         }}>
             <div style={{
-                backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '800px',
+                backgroundColor: 'white', borderRadius: '12px', width: '100%', maxWidth: '900px',
                 maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
             }}>
                 <button
@@ -58,7 +90,7 @@ export function CustomerProfileModal({ customer, onClose, orderHistory = [] }) {
                                 <span>{customer.email}</span>
                                 {customer.phone && <span>• {customer.phone}</span>}
                             </div>
-                            <div style={{ marginTop: '0.5rem' }}>
+                            <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
                                 <span style={{
                                     padding: '0.25rem 0.75rem', backgroundColor: '#dcfce7', color: '#15803d',
                                     borderRadius: '999px', fontSize: '0.875rem', fontWeight: '600'
@@ -71,15 +103,38 @@ export function CustomerProfileModal({ customer, onClose, orderHistory = [] }) {
 
                     {/* Metrics Grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                        <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                                <DollarSign size={18} />
-                                <span style={{ fontSize: '0.875rem' }}>Total Gastado (LTV)</span>
+                        {/* Wallet / Points */}
+                        <div style={{ padding: '1rem', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#0369a1', marginBottom: '0.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <DollarSign size={18} />
+                                    <span style={{ fontSize: '0.875rem' }}>Monedero (Puntos)</span>
+                                </div>
+                                {!isEditingWallet && (
+                                    <button onClick={() => setIsEditingWallet(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0284c7' }}>
+                                        <Edit2 size={16} />
+                                    </button>
+                                )}
                             </div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>
-                                ${totalSpent.toFixed(2)}
-                            </div>
+                            {isEditingWallet ? (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        type="number"
+                                        value={walletAmount}
+                                        onChange={(e) => setWalletAmount(e.target.value)}
+                                        style={{ width: '100%', padding: '0.25rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                                    />
+                                    <button onClick={handleUpdateWallet} disabled={updating} style={{ background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', padding: '0.25rem 0.5rem', cursor: 'pointer' }}>
+                                        <Save size={16} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0c4a6e' }}>
+                                    {customer.wallet || 0} pts
+                                </div>
+                            )}
                         </div>
+
                         <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#6b7280', marginBottom: '0.5rem' }}>
                                 <ShoppingBag size={18} />
@@ -109,55 +164,78 @@ export function CustomerProfileModal({ customer, onClose, orderHistory = [] }) {
                         </div>
                     </div>
 
-                    {/* Order History */}
-                    <h3 style={{ fontSize: '1.1rem', color: '#111827', marginBottom: '1rem' }}>Historial de Pedidos</h3>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                            <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                                <tr>
-                                    <th style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#6b7280' }}>ID Pedido</th>
-                                    <th style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#6b7280' }}>Fecha</th>
-                                    <th style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#6b7280' }}>Items</th>
-                                    <th style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#6b7280' }}>Total</th>
-                                    <th style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#6b7280' }}>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {orderHistory.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                                            No hay pedidos registrados
-                                        </td>
-                                    </tr>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                        {/* Coupons List */}
+                        <div>
+                            <h3 style={{ fontSize: '1.1rem', color: '#111827', marginBottom: '1rem' }}>Cupones Activos</h3>
+                            <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', maxHeight: '300px', overflowY: 'auto' }}>
+                                {customer.coupons && customer.coupons.length > 0 ? (
+                                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                        {customer.coupons.map((coupon, idx) => (
+                                            <li key={idx} style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <div style={{ fontWeight: '600', color: '#111827' }}>{coupon.code}</div>
+                                                    <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                                                        {coupon.type === 'product' ? 'Producto Gratis' : `$${coupon.discount} desc.`}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveCoupon(coupon.code)}
+                                                    disabled={updating}
+                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                    title="Eliminar cupón"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 ) : (
-                                    orderHistory.map((order, idx) => (
-                                        <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                            <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#111827' }}>
-                                                #{order.id ? order.id.slice(-6) : idx + 1}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                                                {new Date(order.date).toLocaleDateString()}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                                                {order.items ? order.items.length : 0} items
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>
-                                                ${order.total.toFixed(2)}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem' }}>
-                                                <span style={{
-                                                    padding: '0.125rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem',
-                                                    backgroundColor: order.status === 'completed' ? '#dcfce7' : '#fef3c7',
-                                                    color: order.status === 'completed' ? '#15803d' : '#92400e'
-                                                }}>
-                                                    {order.status === 'completed' ? 'Completado' : 'Pendiente'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))
+                                    <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.9rem' }}>
+                                        El cliente no tiene cupones activos.
+                                    </div>
                                 )}
-                            </tbody>
-                        </table>
+                            </div>
+                        </div>
+
+                        {/* Order History */}
+                        <div>
+                            <h3 style={{ fontSize: '1.1rem', color: '#111827', marginBottom: '1rem' }}>Historial de Pedidos</h3>
+                            <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', maxHeight: '300px', overflowY: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                                        <tr>
+                                            <th style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: '#6b7280' }}>ID</th>
+                                            <th style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: '#6b7280' }}>Fecha</th>
+                                            <th style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: '#6b7280' }}>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {orderHistory.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="3" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
+                                                    Sin pedidos
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            orderHistory.map((order, idx) => (
+                                                <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#111827' }}>
+                                                        #{order.id ? order.id.slice(-6) : idx + 1}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                                                        {new Date(order.date).toLocaleDateString()}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', fontWeight: '500', color: '#111827' }}>
+                                                        ${order.total.toFixed(2)}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

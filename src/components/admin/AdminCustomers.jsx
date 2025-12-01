@@ -200,6 +200,23 @@ export function AdminCustomers() {
                     customer={selectedCustomer}
                     orderHistory={customerHistory}
                     onClose={() => setIsModalOpen(false)}
+                    onUpdate={() => {
+                        loadCustomers();
+                        // Also reload selected customer to show new data
+                        // But since we reload all, we might need to find him again or just close modal?
+                        // Better to re-fetch specific customer or just close.
+                        // Let's reload all and update selectedCustomer from the new list if possible,
+                        // or just close modal to be simple.
+                        // Actually, let's keep modal open and update selectedCustomer.
+                        // We can fetch the single user again.
+                        // For now, let's just reload the list. The modal uses 'customer' prop which is 'selectedCustomer' state.
+                        // We need to update 'selectedCustomer' state too.
+                        api.users.getAll().then(data => {
+                            setCustomers(data);
+                            const updated = data.find(c => c.email === selectedCustomer.email);
+                            if (updated) setSelectedCustomer(updated);
+                        });
+                    }}
                 />
             )}
         </div>

@@ -1,10 +1,11 @@
 import React from 'react';
 import { Heart, Plus } from 'lucide-react';
 
-export function ProductCard({ product, onAdd, isFavorite, onToggleFavorite, onClick }) {
+export function ProductCard({ product, onAdd, isFavorite, onToggleFavorite, onClick, priority = false }) {
     return (
         <div
             onClick={onClick}
+            className="animate-scale-in"
             style={{
                 backgroundColor: 'white',
                 borderRadius: 'var(--radius)',
@@ -78,6 +79,9 @@ export function ProductCard({ product, onAdd, isFavorite, onToggleFavorite, onCl
                 <img
                     src={product.image}
                     alt={product.name}
+                    loading={priority ? "eager" : "lazy"}
+                    width="100%"
+                    height="140"
                     style={{
                         maxHeight: '100%',
                         maxWidth: '100%',
@@ -140,7 +144,7 @@ export function ProductCard({ product, onAdd, isFavorite, onToggleFavorite, onCl
                     className="btn-add"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onAdd(product, e);
+                        onAdd(product);
                     }}
                     style={{ marginTop: 'auto' }}
                 >

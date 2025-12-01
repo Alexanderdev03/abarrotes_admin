@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, ShoppingCart, Search, Camera, X } from 'lucide-react';
+import { Search, Camera, X } from 'lucide-react';
 
-export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner, products = [], onProductSelect }) {
-    const [suggestions, setSuggestions] = useState([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
+export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner }) {
+    const [localSearch, setLocalSearch] = useState(searchQuery);
 
+    // Sync local state if external searchQuery changes (e.g. clearing filter)
     useEffect(() => {
-        if (searchQuery.length > 1) {
-            const filtered = products.filter(p =>
-                p.name.toLowerCase().includes(searchQuery.toLowerCase())
-            ).slice(0, 5);
-            setSuggestions(filtered);
-            setShowSuggestions(true);
-        } else {
-            setSuggestions([]);
-            setShowSuggestions(false);
-        }
-    }, [searchQuery, products]);
+        setLocalSearch(searchQuery);
+    }, [searchQuery]);
+
+    // Debounce search update
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localSearch !== searchQuery) {
+                setSearchQuery(localSearch);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [localSearch, setSearchQuery, searchQuery]);
 
     return (
         <header style={{
@@ -44,11 +46,12 @@ export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner, p
                     type="text"
                     placeholder="Buscar productos..."
                     className="search-input"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => {
-                        if (searchQuery.length > 1) setShowSuggestions(true);
-                    }}
+                    value={localSearch}
+                    onChange={(e) => setLocalSearch(e.target.value)}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck="false"
                     style={{
                         width: '100%',
                         padding: '0.75rem 3rem 0.75rem 2.5rem',
@@ -61,8 +64,8 @@ export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner, p
                 {searchQuery && (
                     <button
                         onClick={() => {
+                            setLocalSearch('');
                             setSearchQuery('');
-                            setSuggestions([]);
                         }}
                         style={{
                             position: 'absolute',
@@ -97,8 +100,6 @@ export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner, p
                 >
                     <Camera size={20} color="#666" />
                 </button>
-
-
             </div>
         </header>
     );

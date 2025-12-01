@@ -55,6 +55,45 @@ export function AuthProvider({ children }) {
         return unsubscribe;
     }, []);
 
+    // Listen to real-time updates from Firestore
+    useEffect(() => {
+        if (user?.email) {
+            import('firebase/firestore').then(({ doc, onSnapshot }) => {
+                import('../firebase/config').then(({ db }) => {
+                    const userRef = doc(db, 'users', user.email);
+                    const unsubscribe = onSnapshot(userRef, (doc) => {
+                        if (doc.exists()) {
+                            const userData = doc.data();
+                            setUser(prev => ({
+                                ...prev,
+                                ...userData,
+                                // Ensure critical fields are preserved if missing in DB (though syncUser should handle it)
+                                role: userData.role || prev.role,
+                                wallet: userData.wallet || 0,
+                                coupons: userData.coupons || []
+                            }));
+                            // Update local storage to keep it in sync
+                            localStorage.setItem('user', JSON.stringify({
+                                ...user,
+                                ...userData
+                            }));
+                        }
+                    });
+                    return () => unsubscribe();
+                });
+            });
+        }
+    }, [user?.email]); // Only re-subscribe if email changes
+
+    // Sync user to Firestore whenever it changes
+    useEffect(() => {
+        if (user) {
+            import('../services/users').then(({ UserService }) => {
+                UserService.syncUser(user);
+            });
+        }
+    }, [user]);
+
     const loginWithGoogle = async () => {
         try {
             await signInWithPopup(auth, googleProvider);

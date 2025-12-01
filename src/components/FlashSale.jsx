@@ -1,11 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Timer, Zap } from 'lucide-react';
 import { ProductService } from '../services/products';
 
-export function FlashSale({ onAdd }) {
+const CountdownTimer = memo(() => {
     const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
-    const [isVisible, setIsVisible] = useState(true);
 
+    useEffect(() => {
+        const calculateTimeLeft = () => {
+            const now = new Date();
+            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+            const difference = endOfDay.getTime() - now.getTime();
+
+            if (difference > 0) {
+                return {
+                    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+                    minutes: Math.floor((difference / 1000 / 60) % 60),
+                    seconds: Math.floor((difference / 1000) % 60)
+                };
+            }
+            return { hours: 0, minutes: 0, seconds: 0 };
+        };
+
+        // Initial calculation
+        setTimeLeft(calculateTimeLeft());
+
+        const timer = setInterval(() => {
+            setTimeLeft(calculateTimeLeft());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
+
+    return (
+        <div style={{
+            display: 'flex',
+            gap: '4px',
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            padding: '0.5rem',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            fontFamily: 'monospace',
+            fontSize: '1.1rem'
+        }}>
+            <span>{String(timeLeft.hours).padStart(2, '0')}</span>:
+            <span>{String(timeLeft.minutes).padStart(2, '0')}</span>:
+            <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
+        </div>
+    );
+});
+
+export function FlashSale({ onAdd }) {
+    const [isVisible, setIsVisible] = useState(true);
     const [flashProduct, setFlashProduct] = useState(null);
 
     useEffect(() => {
@@ -41,36 +86,12 @@ export function FlashSale({ onAdd }) {
         const handleStorageChange = () => loadFlashProduct();
         window.addEventListener('storage', handleStorageChange);
 
-        // Set deadline to end of current day
-        const now = new Date();
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-        const calculateTimeLeft = () => {
-            const difference = endOfDay.getTime() - new Date().getTime();
-
-            if (difference > 0) {
-                return {
-                    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-                    minutes: Math.floor((difference / 1000 / 60) % 60),
-                    seconds: Math.floor((difference / 1000) % 60)
-                };
-            }
-            return { hours: 0, minutes: 0, seconds: 0 };
-        };
-
-        const timer = setInterval(() => {
-            setTimeLeft(calculateTimeLeft());
-        }, 1000);
-
         return () => {
-            clearInterval(timer);
             window.removeEventListener('storage', handleStorageChange);
         };
     }, []);
 
     if (!isVisible || !flashProduct) return null;
-
-    if (!isVisible) return null;
 
     return (
         <div style={{
@@ -105,20 +126,7 @@ export function FlashSale({ onAdd }) {
                     <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9 }}>¡Oferta relámpago! Termina en:</p>
                 </div>
 
-                <div style={{
-                    display: 'flex',
-                    gap: '4px',
-                    backgroundColor: 'rgba(0,0,0,0.2)',
-                    padding: '0.5rem',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    fontFamily: 'monospace',
-                    fontSize: '1.1rem'
-                }}>
-                    <span>{String(timeLeft.hours).padStart(2, '0')}</span>:
-                    <span>{String(timeLeft.minutes).padStart(2, '0')}</span>:
-                    <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
-                </div>
+                <CountdownTimer />
             </div>
 
             <div style={{

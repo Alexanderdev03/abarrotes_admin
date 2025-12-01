@@ -29,7 +29,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
                 image: product.image || '',
                 description: product.description || '',
                 stock: product.stock || 'In Stock',
-                points: product.points || '',
+                points: product.bonusPoints || '', // Map bonusPoints to points field
                 isBulk: product.isBulk || false,
                 averageWeight: product.averageWeight || '',
                 bulkSuggestions: product.bulkSuggestions || ''
@@ -43,7 +43,7 @@ export function ProductForm({ product, onClose, onSave, categories }) {
             ...formData,
             price: parseFloat(formData.price),
             originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
-            points: formData.points ? parseInt(formData.points) : 0,
+            bonusPoints: formData.points ? parseInt(formData.points) : 0, // Save as bonusPoints
             isBulk: formData.isBulk,
             averageWeight: formData.averageWeight ? parseFloat(formData.averageWeight) : null,
             bulkSuggestions: formData.bulkSuggestions || null
