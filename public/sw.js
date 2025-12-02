@@ -1,4 +1,4 @@
-const CACHE_NAME = 'abarrotes-alex-online-v2';
+const CACHE_NAME = 'abarrotes-alex-online-v3';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -8,9 +8,11 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
+    self.skipWaiting(); // Force activation
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(urlsToCache))
+            .catch(err => console.error("Cache addAll failed:", err))
     );
 });
 
@@ -24,7 +26,7 @@ self.addEventListener('activate', event => {
                     }
                 })
             );
-        })
+        }).then(() => self.clients.claim()) // Take control immediately
     );
 });
 
@@ -33,7 +35,6 @@ self.addEventListener('fetch', event => {
     const url = new URL(request.url);
 
     // Filter for assets we want to cache with Stale-While-Revalidate
-    // Images, Scripts, Styles, Fonts
     if (
         request.destination === 'image' ||
         request.destination === 'style' ||
@@ -49,9 +50,17 @@ self.addEventListener('fetch', event => {
             caches.open(CACHE_NAME).then(cache => {
                 return cache.match(request).then(cachedResponse => {
                     const fetchPromise = fetch(request).then(networkResponse => {
+                        // Check if we received a valid response
+                        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                            return networkResponse;
+                        }
                         cache.put(request, networkResponse.clone());
                         return networkResponse;
+                    }).catch(err => {
+                        // Network failed, return nothing (will fallback to cachedResponse)
+                        console.warn("Fetch failed for asset:", request.url, err);
                     });
+
                     // Return cached response if available, otherwise wait for network
                     return cachedResponse || fetchPromise;
                 });
@@ -60,14 +69,16 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // For everything else (API calls, HTML navigation), use Network First
-    // This ensures we always get fresh data but have a fallback if offline (optional)
-    // For now, we keep the original "Network Only" behavior for safety on data,
-    // but we can try to return index.html for navigation to support SPA offline load
+    // Navigation fallback
     if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request).catch(() => {
-                return caches.match('/index.html');
+                return caches.match('/index.html').then(response => {
+                    return response || new Response("Offline: index.html not found in cache.", {
+                        status: 503,
+                        headers: { 'Content-Type': 'text/plain' }
+                    });
+                });
             })
         );
         return;

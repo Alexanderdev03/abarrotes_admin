@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import logo from '../assets/logo.png';
+// import logo from '../assets/logo.png'; // REMOVED: Optimization
+// TODO: Reemplaza esta URL con la URL de descarga de tu archivo logo.png en Firebase Storage
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/abarrotesalex-ec387.firebasestorage.app/o/logo.png?alt=media";
+
 import { useAuth } from '../context/auth.jsx';
 
 export function LoginModal() {
@@ -41,7 +44,7 @@ export function LoginModal() {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
                 padding: '3px'
             }}>
-                <img src={logo} alt="Abarrotes Alex" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
+                <img src={LOGO_URL} alt="Abarrotes Alex" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
             </div>
 
             <h1 style={{ color: 'white', marginBottom: '0.5rem', textAlign: 'center' }}>¡Bienvenido!</h1>

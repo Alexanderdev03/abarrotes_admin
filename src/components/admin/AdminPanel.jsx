@@ -136,7 +136,9 @@ export function AdminPanel() {
                             <div key={order.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid #f3f4f6' }}>
                                 <div>
                                     <div style={{ fontWeight: '500', color: '#111827' }}>Pedido #{order.id}</div>
-                                    <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{order.date} • {order.items?.length || 0} items</div>
+                                    <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                                        {order.date instanceof Date ? order.date.toLocaleDateString() : new Date(order.date).toLocaleDateString()} • {order.items?.length || 0} items
+                                    </div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ fontWeight: '600', color: '#111827' }}>${order.total?.toFixed(2)}</div>

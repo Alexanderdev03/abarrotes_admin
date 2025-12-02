@@ -1,19 +1,22 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ProductActionModal } from './components/ProductActionModal';
 import { CheckoutModal } from './components/CheckoutModal';
 import { LoginModal } from './components/LoginModal';
 import { Toast } from './components/Toast';
 import { StoreMap } from './components/StoreMap';
-import { AdminRouter } from './components/admin/AdminRouter';
-import { Account } from './components/Account';
-import { CombosGrid } from './components/CombosGrid';
+// Lazy loaded components
+const AdminRouter = React.lazy(() => import('./components/admin/AdminRouter').then(module => ({ default: module.AdminRouter })));
+const Account = React.lazy(() => import('./components/Account').then(module => ({ default: module.Account })));
+const CombosGrid = React.lazy(() => import('./components/CombosGrid').then(module => ({ default: module.CombosGrid })));
+const CategoriesView = React.lazy(() => import('./components/CategoriesView').then(module => ({ default: module.CategoriesView })));
+const CartView = React.lazy(() => import('./components/CartView').then(module => ({ default: module.CartView })));
+const PointsView = React.lazy(() => import('./components/PointsView').then(module => ({ default: module.PointsView })));
+
 import { HomeView } from './components/HomeView';
-import { CategoriesView } from './components/CategoriesView';
 import { AuthProvider, useAuth } from './context/auth.jsx';
 import { CartProvider, useCart } from './context/cart.jsx';
-import { CartView } from './components/CartView';
-import { PointsView } from './components/PointsView';
+
 import { OrderService } from './services/orders';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { MainLayout } from './layouts/MainLayout';
@@ -365,131 +368,138 @@ function App() {
 
   return (
     <>
-      <Routes>
-        <Route path="/" element={
-          <MainLayout
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            isScanning={isScanning}
-            setIsScanning={setIsScanning}
-            handleScan={handleScan}
-            products={products}
-            categories={categories}
-            handleCategoryClick={handleCategoryClick}
-            handleOpenProduct={setSelectedProduct}
-            clearFilters={clearFilters}
-          />
-        }>
-          <Route index element={
-            <HomeView
-              categories={categories}
-              selectedCategory={selectedCategory}
-              selectedSubcategory={selectedSubcategory}
+      <Suspense fallback={
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3498db', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+        </div>
+      }>
+        <Routes>
+          <Route path="/" element={
+            <MainLayout
               searchQuery={searchQuery}
-              filteredProducts={filteredProducts}
-              filteredCategories={filteredCategories}
-              visibleProducts={visibleProducts}
-              isLoading={isLoading}
-              visibleCount={visibleCount}
-              setVisibleCount={setVisibleCount}
+              setSearchQuery={setSearchQuery}
+              isScanning={isScanning}
+              setIsScanning={setIsScanning}
+              handleScan={handleScan}
+              products={products}
+              categories={categories}
               handleCategoryClick={handleCategoryClick}
-              setSelectedSubcategory={setSelectedSubcategory}
-              handleTabChange={(tab) => {
-                if (tab === 'categories') navigate('/categories');
-                else if (tab === 'combos') navigate('/combos');
-                else navigate('/' + tab);
-              }}
-              addToCart={addToCart}
-              favorites={favorites}
-              toggleFavorite={toggleFavorite}
               handleOpenProduct={setSelectedProduct}
               clearFilters={clearFilters}
-              sortOrder={sortOrder}
-              setSortOrder={setSortOrder}
-              bestSellers={bestSellers}
-              handleAddCombo={addComboToCart}
             />
-          } />
-          <Route path="cart" element={
-            <CartView
-              cart={cart}
-              cartTotal={cartTotal}
-              isSavingList={isSavingList}
-              startSaveList={startSaveList}
-              newListName={newListName}
-              setNewListName={setNewListName}
-              onConfirmSaveList={saveList}
-              cancelSaveList={cancelSaveList}
-              removeFromCart={removeFromCart}
-              updateQuantity={updateQuantity}
-              user={user}
-              handleApplyCoupon={handleApplyCoupon}
-              appliedCoupon={appliedCoupon}
-              couponCode={couponCode}
-              setCouponCode={setCouponCode}
-              totalSavings={totalSavings}
-              productCouponsDiscount={productCouponsDiscount}
-              usedProductCoupons={usedProductCoupons}
-              pointsToUse={pointsToUse}
-              setPointsToUse={setPointsToUse}
-              pointValue={pointValue}
-              couponDiscount={couponDiscount}
-              finalTotal={finalTotal}
-              setShowCheckout={setShowCheckout}
-              savedLists={savedLists}
-              loadList={loadList}
-              deleteList={deleteList}
-              setActiveTab={(tab) => navigate('/' + tab)}
-            />
-          } />
-          <Route path="points" element={
-            <PointsView
-              user={user}
-              pointValue={pointValue}
-              rewardProducts={rewardProducts}
-              availableCoupons={availableCoupons}
-              onUpdateUser={(updatedUser) => {
-                setUser(updatedUser);
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-              }}
-              showToast={showToast}
-            />
-          } />
-          <Route path="combos" element={
-            <CombosGrid onAddCombo={addComboToCart} onBack={() => navigate('/')} />
-          } />
-          <Route path="categories" element={
-            <CategoriesView
-              filteredCategories={filteredCategories}
-              handleCategoryClick={handleCategoryClick}
-              searchQuery={searchQuery}
-              filteredProducts={filteredProducts}
-              addToCart={addToCart}
-              handleOpenProduct={setSelectedProduct}
-              favorites={favorites}
-              toggleFavorite={toggleFavorite}
-            />
-          } />
-          <Route path="profile" element={
-            <Account
-              user={user}
-              orders={orders}
-              favorites={favorites}
-              onLogout={handleLogout}
-              onUpdateUser={(updatedUser) => {
-                setUser(updatedUser);
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-              }}
-              onToggleFavorite={toggleFavorite}
-              onAddToCart={addToCart}
-              onProductSelect={setSelectedProduct}
-              onNavigateToAdmin={() => navigate('/admin')}
-            />
-          } />
-        </Route>
+          }>
+            <Route index element={
+              <HomeView
+                categories={categories}
+                selectedCategory={selectedCategory}
+                selectedSubcategory={selectedSubcategory}
+                searchQuery={searchQuery}
+                filteredProducts={filteredProducts}
+                filteredCategories={filteredCategories}
+                visibleProducts={visibleProducts}
+                isLoading={isLoading}
+                visibleCount={visibleCount}
+                setVisibleCount={setVisibleCount}
+                handleCategoryClick={handleCategoryClick}
+                setSelectedSubcategory={setSelectedSubcategory}
+                handleTabChange={(tab) => {
+                  if (tab === 'categories') navigate('/categories');
+                  else if (tab === 'combos') navigate('/combos');
+                  else navigate('/' + tab);
+                }}
+                addToCart={addToCart}
+                favorites={favorites}
+                toggleFavorite={toggleFavorite}
+                handleOpenProduct={setSelectedProduct}
+                clearFilters={clearFilters}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+                bestSellers={bestSellers}
+                handleAddCombo={addComboToCart}
+              />
+            } />
+            <Route path="cart" element={
+              <CartView
+                cart={cart}
+                cartTotal={cartTotal}
+                isSavingList={isSavingList}
+                startSaveList={startSaveList}
+                newListName={newListName}
+                setNewListName={setNewListName}
+                onConfirmSaveList={saveList}
+                cancelSaveList={cancelSaveList}
+                removeFromCart={removeFromCart}
+                updateQuantity={updateQuantity}
+                user={user}
+                handleApplyCoupon={handleApplyCoupon}
+                appliedCoupon={appliedCoupon}
+                couponCode={couponCode}
+                setCouponCode={setCouponCode}
+                totalSavings={totalSavings}
+                productCouponsDiscount={productCouponsDiscount}
+                usedProductCoupons={usedProductCoupons}
+                pointsToUse={pointsToUse}
+                setPointsToUse={setPointsToUse}
+                pointValue={pointValue}
+                couponDiscount={couponDiscount}
+                finalTotal={finalTotal}
+                setShowCheckout={setShowCheckout}
+                savedLists={savedLists}
+                loadList={loadList}
+                deleteList={deleteList}
+                setActiveTab={(tab) => navigate('/' + tab)}
+              />
+            } />
+            <Route path="points" element={
+              <PointsView
+                user={user}
+                pointValue={pointValue}
+                rewardProducts={rewardProducts}
+                availableCoupons={availableCoupons}
+                onUpdateUser={(updatedUser) => {
+                  setUser(updatedUser);
+                  localStorage.setItem('user', JSON.stringify(updatedUser));
+                }}
+                showToast={showToast}
+              />
+            } />
+            <Route path="combos" element={
+              <CombosGrid onAddCombo={addComboToCart} onBack={() => navigate('/')} />
+            } />
+            <Route path="categories" element={
+              <CategoriesView
+                filteredCategories={filteredCategories}
+                handleCategoryClick={handleCategoryClick}
+                searchQuery={searchQuery}
+                filteredProducts={filteredProducts}
+                addToCart={addToCart}
+                handleOpenProduct={setSelectedProduct}
+                favorites={favorites}
+                toggleFavorite={toggleFavorite}
+              />
+            } />
+            <Route path="profile" element={
+              <Account
+                user={user}
+                orders={orders}
+                favorites={favorites}
+                onLogout={handleLogout}
+                onUpdateUser={(updatedUser) => {
+                  setUser(updatedUser);
+                  localStorage.setItem('user', JSON.stringify(updatedUser));
+                }}
+                onToggleFavorite={toggleFavorite}
+                onAddToCart={addToCart}
+                onProductSelect={setSelectedProduct}
+                onNavigateToAdmin={() => navigate('/admin')}
+              />
+            } />
+          </Route>
 
-        <Route path="/admin/*" element={<AdminRouter />} />
-      </Routes>
+          <Route path="/admin/*" element={<AdminRouter />} />
+        </Routes>
+      </Suspense>
 
       {/* Global Modals */}
       {selectedProduct && (

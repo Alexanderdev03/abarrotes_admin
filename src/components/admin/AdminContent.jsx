@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Image, Upload, Plus, Trash2, Link as LinkIcon, Palette, Type } from 'lucide-react';
+import { Image, Upload, Plus, Trash2, Link as LinkIcon, Palette, Type, Save } from 'lucide-react';
 import { ConfirmationModal } from '../ConfirmationModal';
 
 export function AdminContent() {
