@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 import { VoiceSearch } from './VoiceSearch';
 
-export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner, products, addToCart, showToast }) {
+export function Header({ searchQuery, setSearchQuery, onSearchSubmit, userName, onOpenScanner, products, addToCart, showToast }) {
     const [localSearch, setLocalSearch] = useState(searchQuery);
 
     // Sync local state if external searchQuery changes (e.g. clearing filter)
@@ -53,6 +53,14 @@ export function Header({ searchQuery, setSearchQuery, userName, onOpenScanner, p
                     autoCapitalize="off"
                     autoCorrect="off"
                     spellCheck="false"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.target.blur(); // Hide keyboard on mobile
+                            if (onSearchSubmit) {
+                                onSearchSubmit(localSearch);
+                            }
+                        }
+                    }}
                     style={{
                         width: '100%',
                         padding: '0.75rem 4rem 0.75rem 2.5rem', // Adjusted padding

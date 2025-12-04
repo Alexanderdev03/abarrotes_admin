@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Package, ShoppingBag, Users, Tag,
-    Image, Settings, LogOut, Menu, X, Layers, List, Store
+    Image, Settings, LogOut, Menu, X, Layers, List
 } from 'lucide-react';
 import { useAuth } from '../context/auth.jsx';
 
@@ -53,10 +53,10 @@ export function AdminLayout() {
                 <h1 style={{ marginBottom: '1rem' }}>Acceso Denegado</h1>
                 <p style={{ marginBottom: '2rem' }}>No tienes permisos para ver esta página.</p>
                 <button
-                    onClick={handleExit}
+                    onClick={handleLogout}
                     style={{
                         padding: '0.75rem 1.5rem',
-                        backgroundColor: '#3b82f6',
+                        backgroundColor: '#ef4444',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',
@@ -64,22 +64,22 @@ export function AdminLayout() {
                         fontWeight: 'bold'
                     }}
                 >
-                    Volver a la Tienda
+                    Cerrar Sesión
                 </button>
             </div>
         );
     }
 
     const menuItems = [
-        { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
-        { path: '/admin/products', icon: Package, label: 'Productos' },
-        { path: '/admin/categories', icon: List, label: 'Categorías' },
-        { path: '/admin/orders', icon: ShoppingBag, label: 'Pedidos' },
-        { path: '/admin/customers', icon: Users, label: 'Clientes' },
-        { path: '/admin/promos', icon: Tag, label: 'Promociones' },
-        { path: '/admin/combos', icon: Layers, label: 'Combos' },
-        { path: '/admin/content', icon: Image, label: 'Contenido' },
-        { path: '/admin/settings', icon: Settings, label: 'Configuración' },
+        { path: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
+        { path: '/products', icon: Package, label: 'Productos' },
+        { path: '/categories', icon: List, label: 'Categorías' },
+        { path: '/orders', icon: ShoppingBag, label: 'Pedidos' },
+        { path: '/customers', icon: Users, label: 'Clientes' },
+        { path: '/promos', icon: Tag, label: 'Promociones' },
+        { path: '/combos', icon: Layers, label: 'Combos' },
+        { path: '/content', icon: Image, label: 'Contenido' },
+        { path: '/settings', icon: Settings, label: 'Configuración' },
     ];
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -138,7 +138,7 @@ export function AdminLayout() {
                     {menuItems.map(item => {
                         const isActive = item.exact
                             ? location.pathname === item.path
-                            : location.pathname.startsWith(item.path);
+                            : location.pathname.startsWith(item.path !== '/' ? item.path : '///'); // Hack to prevent / matching everything if not exact
 
                         return (
                             <button
@@ -172,26 +172,6 @@ export function AdminLayout() {
                 </nav>
 
                 <div style={{ padding: '1rem', borderTop: '1px solid #374151' }}>
-                    <button
-                        onClick={handleExit}
-                        style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            backgroundColor: 'transparent',
-                            color: '#10b981',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            marginBottom: '0.5rem'
-                        }}
-                    >
-                        <Store size={20} />
-                        <span>Volver a la Tienda</span>
-                    </button>
                     <button
                         onClick={handleLogout}
                         style={{

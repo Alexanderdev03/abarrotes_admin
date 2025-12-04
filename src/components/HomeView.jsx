@@ -7,6 +7,7 @@ import { FlashSale } from './FlashSale';
 import { ComboSection } from './ComboSection';
 import { Flyer } from './Flyer';
 
+
 const iconMap = {
     ShoppingBasket
 };
@@ -34,13 +35,19 @@ export function HomeView({
     setSortOrder,
     bestSellers,
     handleAddCombo,
-    storeSettings
+    storeSettings,
+    searchHistory,
+    onHistorySelect,
+    onHistoryRemove,
+    onHistoryClear,
+    suggestions
 }) {
     return (
         <>
             {/* Categories Grid - Horizontal Scroll */}
             {!selectedCategory && !searchQuery && (
                 <div style={{ marginBottom: '1.5rem' }}>
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                         <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>Departamentos</h3>
                         <button onClick={() => handleTabChange('categories')} style={{ background: 'none', border: 'none', color: '#666', fontSize: '0.8rem', cursor: 'pointer' }}>Ver todos</button>
@@ -188,55 +195,36 @@ export function HomeView({
                 </button>
             </div>
 
-            {/* Matching Categories Results */}
-            {searchQuery && filteredCategories && filteredCategories.length > 0 && (
-                <div style={{ marginBottom: '2rem' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Departamentos encontrados:</h4>
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                        {filteredCategories.map((cat, index) => {
-                            const Icon = iconMap[cat.icon] || ShoppingBasket;
-                            return (
-                                <div
-                                    key={index}
-                                    onClick={() => handleCategoryClick(cat.name)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.75rem',
-                                        padding: '0.75rem 1rem',
-                                        backgroundColor: 'white',
-                                        borderRadius: '12px',
-                                        boxShadow: 'var(--shadow-sm)',
-                                        cursor: 'pointer',
-                                        border: '1px solid #eee'
-                                    }}
-                                >
-                                    <div style={{
-                                        backgroundColor: cat.color || '#eee',
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        <Icon size={16} color="var(--color-primary-dark)" />
-                                    </div>
-                                    <span style={{ fontWeight: '600', color: '#333', fontSize: '0.9rem' }}>{cat.name}</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+
 
             {filteredProducts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
-                    <p>No se encontraron productos.</p>
+                    <p>No se encontraron productos exactos.</p>
+
+                    {suggestions && suggestions.length > 0 && (
+                        <div style={{ marginTop: '2rem', textAlign: 'left' }}>
+                            <h4 style={{ color: '#444', marginBottom: '1rem' }}>¿Quizás quisiste decir...?</h4>
+                            <div className="grid-2">
+                                {suggestions.map((product) => (
+                                    <div key={product.id}>
+                                        <ProductCard
+                                            product={product}
+                                            onAdd={addToCart}
+                                            isFavorite={favorites.some(fav => fav.id === product.id)}
+                                            onToggleFavorite={() => toggleFavorite(product)}
+                                            onClick={() => handleOpenProduct(product)}
+                                            priority={true}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <button
                         onClick={clearFilters}
                         className="btn btn-primary"
-                        style={{ marginTop: '1rem', width: 'auto' }}
+                        style={{ marginTop: '2rem', width: 'auto' }}
                     >
                         Ver todos los productos
                     </button>

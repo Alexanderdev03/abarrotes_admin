@@ -27,6 +27,111 @@ export const UserService = {
     },
 
     /**
+     * Obtiene los datos del perfil del usuario.
+     * @param {string} email 
+     */
+    async getUserData(email) {
+        if (!email) return null;
+        try {
+            const userRef = doc(db, 'users', email);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                return userSnap.data();
+            } else {
+                return null;
+            }
+        } catch (error) {
+            console.error("Error getting user data:", error);
+            throw error;
+        }
+    },
+
+    /**
+     * Obtiene el historial de pedidos del usuario.
+     * @param {string} email 
+     */
+    async getOrders(email) {
+        if (!email) return [];
+        try {
+            // Intentar obtener de la subcolección 'orders' del usuario
+            const userOrdersRef = collection(db, 'users', email, 'orders');
+            const userOrdersSnap = await getDocs(userOrdersRef);
+
+            if (!userOrdersSnap.empty) {
+                return userOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+
+            // Fallback: Buscar en la colección global 'orders' filtrando por email (Legacy/Global)
+            // Esto es útil si los pedidos se guardan globalmente pero no se duplicaron en el usuario antes
+            return await this.getHistory(email);
+        } catch (error) {
+            console.error("Error getting orders:", error);
+            return [];
+        }
+    },
+
+    /**
+     * Guarda un nuevo pedido en la subcolección de pedidos del usuario.
+     * @param {string} email 
+     * @param {object} order 
+     */
+    async addOrder(email, order) {
+        if (!email) return;
+        try {
+            const ordersRef = collection(db, 'users', email, 'orders');
+            const orderDocRef = order.id ? doc(ordersRef, String(order.id)) : doc(ordersRef);
+
+            const orderData = {
+                ...order,
+                createdAt: new Date().toISOString()
+            };
+
+            await setDoc(orderDocRef, orderData);
+            return orderDocRef.id;
+        } catch (error) {
+            console.error("Error adding order:", error);
+            throw error;
+        }
+    },
+
+    /**
+     * Actualiza la lista de favoritos del usuario.
+     * @param {string} email 
+     * @param {Array} favorites 
+     */
+    async updateFavorites(email, favorites) {
+        if (!email) return;
+        try {
+            const userRef = doc(db, 'users', email);
+            await updateDoc(userRef, { favorites });
+        } catch (error) {
+            console.error("Error updating favorites:", error);
+            if (error.code === 'not-found') {
+                await setDoc(doc(db, 'users', email), { favorites }, { merge: true });
+            }
+        }
+    },
+
+    /**
+     * Actualiza las listas guardadas del usuario.
+     * @param {string} email 
+     * @param {Array} savedLists 
+     */
+    async updateSavedLists(email, savedLists) {
+        if (!email) return;
+        try {
+            const userRef = doc(db, 'users', email);
+            await updateDoc(userRef, { savedLists });
+        } catch (error) {
+            console.error("Error updating saved lists:", error);
+            if (error.code === 'not-found') {
+                await setDoc(doc(db, 'users', email), { savedLists }, { merge: true });
+            }
+        }
+    },
+
+    /**
      * Retrieves all users from Firestore
      */
     async getAll() {

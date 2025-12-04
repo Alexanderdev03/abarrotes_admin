@@ -18,7 +18,8 @@ export const MainLayout = ({
     handleCategoryClick,
     handleOpenProduct,
     clearFilters,
-    showToast
+    showToast,
+    addToHistory // New prop
 }) => {
     const { user } = useAuth();
     const {
@@ -65,7 +66,23 @@ export const MainLayout = ({
         if (query && location.pathname !== '/') {
             navigate('/');
         }
+        // Debounce or wait for enter could be better, but for now we rely on user action
+        // Actually, we should add to history when user "submits" or after a delay?
+        // Let's add it when they hit enter or select a suggestion. 
+        // Since this is just input change, we might not want to add every keystroke.
+        // We'll handle addToHistory in Header's onSearchSubmit if possible, or here if we had a submit event.
+        // For now, let's assume Header calls a submit handler.
     }, [setSearchQuery, location.pathname, navigate]);
+
+    // New handler for explicit search submission (e.g. Enter key)
+    const handleSearchSubmit = useCallback((query) => {
+        if (query && addToHistory) {
+            addToHistory(query);
+        }
+        if (location.pathname !== '/') {
+            navigate('/');
+        }
+    }, [addToHistory, location.pathname, navigate]);
 
     return (
         <div className="app-container">
@@ -87,6 +104,7 @@ export const MainLayout = ({
             <Header
                 searchQuery={searchQuery}
                 setSearchQuery={handleSearchInput}
+                onSearchSubmit={handleSearchSubmit} // Pass submit handler
                 userName={user ? user.name : null}
                 onOpenScanner={() => setIsScanning(true)}
                 products={products}
