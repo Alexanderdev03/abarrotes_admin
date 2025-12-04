@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Edit, Save, X, Search, Eye } from 'lucide-react';
-import { api } from '../../services/api';
-import { TableSkeleton } from '../common/Skeleton';
-import { EmptyState } from '../common/EmptyState';
+import { api } from '../services/api';
+import { TableSkeleton } from './common/Skeleton';
+import { EmptyState } from './common/EmptyState';
 import { CustomerProfileModal } from './CustomerProfileModal';
 
 export function AdminCustomers() {
@@ -222,3 +222,4 @@ export function AdminCustomers() {
         </div>
     );
 }
+

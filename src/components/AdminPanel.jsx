@@ -3,8 +3,8 @@ import {
     Users, ShoppingBag, DollarSign, TrendingUp,
     AlertTriangle, Package, Calendar, ArrowRight
 } from 'lucide-react';
-import { api } from '../../services/api';
-import { OrderService } from '../../services/orders';
+import { api } from '../services/api';
+import { OrderService } from '../services/orders';
 
 export function AdminPanel() {
     const [stats, setStats] = useState({
@@ -213,3 +213,4 @@ function StatCard({ title, value, icon: Icon, color }) {
         </div>
     );
 }
+

@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Save, Bell, Shield, Database, Upload, Download, Clock, Palette, Image as ImageIcon, Trash2, AlertTriangle, Eye } from 'lucide-react';
-import { Toast } from '../Toast';
-import { ContentService } from '../../services/content';
-import { ProductService } from '../../services/products';
-import { ConfirmationModal } from '../ConfirmationModal';
+import { Toast } from './Toast';
+import { ContentService } from '../services/content';
+import { ProductService } from '../services/products';
+import { ConfirmationModal } from './common/ConfirmationModal';
 
 export function AdminSettings() {
     const fileInputRef = useRef(null);
@@ -177,9 +177,9 @@ export function AdminSettings() {
                 try {
                     setToast({ message: 'Reseteando base de datos...', type: 'info' });
                     // Dynamic imports to avoid circular dependencies
-                    const { ProductService } = await import('../../services/products');
-                    const { OrderService } = await import('../../services/orders');
-                    const { ContentService } = await import('../../services/content');
+                    const { ProductService } = await import('../services/products');
+                    const { OrderService } = await import('../services/orders');
+                    const { ContentService } = await import('../services/content');
 
                     await Promise.all([
                         ProductService.deleteAllProducts(),
@@ -569,3 +569,4 @@ export function AdminSettings() {
         </div>
     );
 }
+

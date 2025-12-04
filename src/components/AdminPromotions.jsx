@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Tag, Zap, Trash2, Plus, Edit, Gift } from 'lucide-react';
-import { ProductService } from '../../services/products';
-import { ConfirmationModal } from '../ConfirmationModal';
+import { ProductService } from '../services/products';
+import { ConfirmationModal } from './common/ConfirmationModal';
 
 export function AdminPromotions() {
     const [products, setProducts] = useState([]);
@@ -34,7 +34,7 @@ export function AdminPromotions() {
             const prods = await ProductService.getAllProducts();
             setProducts(prods.map(p => ({ ...p, id: String(p.id) })));
 
-            const { ContentService } = await import('../../services/content');
+            const { ContentService } = await import('../services/content');
             const couponsData = await ContentService.getCoupons();
             setCoupons(couponsData);
 
@@ -57,7 +57,7 @@ export function AdminPromotions() {
         if (!newCoupon.code || !newCoupon.discount) return;
 
         try {
-            const { ContentService } = await import('../../services/content');
+            const { ContentService } = await import('../services/content');
             const couponData = {
                 code: newCoupon.code,
                 discount: Number(newCoupon.discount),
@@ -111,7 +111,7 @@ export function AdminPromotions() {
             confirmText: 'Sí, eliminar',
             onConfirm: async () => {
                 try {
-                    const { ContentService } = await import('../../services/content');
+                    const { ContentService } = await import('../services/content');
                     await ContentService.deleteCoupon(id);
                     loadData();
                     if (editingCoupon && editingCoupon.id === id) {
@@ -129,7 +129,7 @@ export function AdminPromotions() {
         if (!newRewardProduct.name || !newRewardProduct.points) return;
 
         try {
-            const { ContentService } = await import('../../services/content');
+            const { ContentService } = await import('../services/content');
             await ContentService.addRewardProduct({
                 name: newRewardProduct.name,
                 points: Number(newRewardProduct.points),
@@ -154,7 +154,7 @@ export function AdminPromotions() {
             confirmText: 'Sí, eliminar',
             onConfirm: async () => {
                 try {
-                    const { ContentService } = await import('../../services/content');
+                    const { ContentService } = await import('../services/content');
                     await ContentService.deleteRewardProduct(id);
                     loadData();
                 } catch (error) {
@@ -450,3 +450,4 @@ export function AdminPromotions() {
         </div>
     );
 }
+

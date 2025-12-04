@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Package, Truck, CheckCircle, Search, Eye } from 'lucide-react';
-import { OrderService } from '../../services/orders';
-import { Skeleton } from '../common/Skeleton';
-import { EmptyState } from '../common/EmptyState';
-import { OrderDetailsModal } from '../common/OrderDetailsModal';
+import { OrderService } from '../services/orders';
+import { Skeleton } from './common/Skeleton';
+import { EmptyState } from './common/EmptyState';
+import { OrderDetailsModal } from './common/OrderDetailsModal';
 
 const STATUS_COLUMNS = [
     { id: 'pending', label: 'Pendiente', icon: Clock, color: '#f59e0b', bg: '#fef3c7' },
@@ -195,3 +195,4 @@ export function AdminOrders() {
         </div>
     );
 }
+

@@ -241,3 +241,4 @@ export function AdminLayout() {
         </div>
     );
 }
+

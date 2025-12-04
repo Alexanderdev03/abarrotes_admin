@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Image as ImageIcon, AlertTriangle } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../services/api';
 import { ProductForm } from './ProductForm';
-import { TableSkeleton } from '../common/Skeleton';
-import { EmptyState } from '../common/EmptyState';
-import { ConfirmationModal } from '../ConfirmationModal';
+import { TableSkeleton } from './common/Skeleton';
+import { EmptyState } from './common/EmptyState';
+import { ConfirmationModal } from './common/ConfirmationModal';
 
 export function AdminProducts() {
     const [products, setProducts] = useState([]);
@@ -402,3 +402,4 @@ export function AdminProducts() {
         </div>
     );
 }
+

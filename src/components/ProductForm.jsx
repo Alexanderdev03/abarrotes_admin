@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Image as ImageIcon, Loader } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../services/api';
 
 export function ProductForm({ product, onClose, onSave, categories }) {
     const [formData, setFormData] = useState({
@@ -321,3 +321,4 @@ export function ProductForm({ product, onClose, onSave, categories }) {
         </div >
     );
 }
+

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Image, Upload, Plus, Trash2, Link as LinkIcon, Palette, Type, Save } from 'lucide-react';
-import { ConfirmationModal } from '../ConfirmationModal';
+import { ConfirmationModal } from './common/ConfirmationModal';
 
 export function AdminContent() {
     const [banners, setBanners] = useState([]);
@@ -35,7 +35,7 @@ export function AdminContent() {
 
     const loadContent = async () => {
         try {
-            const { ContentService } = await import('../../services/content');
+            const { ContentService } = await import('../services/content');
             const [bannersData, flyersData] = await Promise.all([
                 ContentService.getBanners(),
                 ContentService.getFlyers()
@@ -79,8 +79,8 @@ export function AdminContent() {
         setIsUploading(true);
 
         try {
-            const { ContentService } = await import('../../services/content');
-            const { StorageService } = await import('../../services/storage');
+            const { ContentService } = await import('../services/content');
+            const { StorageService } = await import('../services/storage');
 
             let imageUrl = editingBanner?.imageUrl || '';
             if (bannerImageFile) {
@@ -131,7 +131,7 @@ export function AdminContent() {
             confirmText: 'Sí, eliminar',
             onConfirm: async () => {
                 try {
-                    const { ContentService } = await import('../../services/content');
+                    const { ContentService } = await import('../services/content');
                     await ContentService.deleteBanner(id);
                     loadContent();
                     if (editingBanner && editingBanner.id === id) {
@@ -150,8 +150,8 @@ export function AdminContent() {
 
         setIsUploading(true);
         try {
-            const { ContentService } = await import('../../services/content');
-            const { StorageService } = await import('../../services/storage');
+            const { ContentService } = await import('../services/content');
+            const { StorageService } = await import('../services/storage');
 
             const imageUrl = await StorageService.uploadFile(file, 'flyers');
             await ContentService.addFlyer({ imageUrl, createdAt: new Date().toISOString() });
@@ -175,7 +175,7 @@ export function AdminContent() {
             confirmText: 'Sí, eliminar',
             onConfirm: async () => {
                 try {
-                    const { ContentService } = await import('../../services/content');
+                    const { ContentService } = await import('../services/content');
                     await ContentService.deleteFlyer(id);
                     loadContent();
                 } catch (error) {
@@ -476,3 +476,4 @@ export function AdminContent() {
         </div>
     );
 }
+

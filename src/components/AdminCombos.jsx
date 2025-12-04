@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, X, Search } from 'lucide-react';
-import { ProductService } from '../../services/products';
-import { ConfirmationModal } from '../ConfirmationModal';
+import { ProductService } from '../services/products';
+import { ConfirmationModal } from './common/ConfirmationModal';
 
 export function AdminCombos() {
     const [combos, setCombos] = useState([]);
@@ -40,7 +40,7 @@ export function AdminCombos() {
 
     const loadData = async () => {
         try {
-            const { ContentService } = await import('../../services/content');
+            const { ContentService } = await import('../services/content');
             const [combosData, allProducts] = await Promise.all([
                 ContentService.getCombos(),
                 ProductService.getAllProducts()
@@ -127,7 +127,7 @@ export function AdminCombos() {
     const handleSave = async () => {
         console.log("Saving combo...", formData);
         try {
-            const { ContentService } = await import('../../services/content');
+            const { ContentService } = await import('../services/content');
 
             if (editingCombo) {
                 console.log("Updating combo:", editingCombo.id);
@@ -163,7 +163,7 @@ export function AdminCombos() {
             confirmText: 'Sí, eliminar',
             onConfirm: async () => {
                 try {
-                    const { ContentService } = await import('../../services/content');
+                    const { ContentService } = await import('../services/content');
                     await ContentService.deleteCombo(id);
                     loadData();
                 } catch (error) {
@@ -361,3 +361,4 @@ export function AdminCombos() {
         </div>
     );
 }
+

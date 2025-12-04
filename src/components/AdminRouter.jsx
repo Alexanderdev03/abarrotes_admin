@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { AdminLayout } from '../../layouts/AdminLayout';
+import { AdminLayout } from './AdminLayout';
 import { AdminPanel } from './AdminPanel';
 import { AdminProducts } from './AdminProducts';
 import { AdminOrders } from './AdminOrders';
@@ -33,3 +33,4 @@ export function AdminRouter() {
         </Routes>
     );
 }
+

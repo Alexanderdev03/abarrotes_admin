@@ -354,5 +354,33 @@ export const ProductService = {
       console.error("Error checking category usage:", error);
       return false; // Assume not used in case of error to avoid blocking, or handle differently
     }
+  },
+
+  updateProductSubcategory: async (categoryName, oldSubcategoryName, newSubcategoryName) => {
+    try {
+      console.log(`Updating products in category "${categoryName}": "${oldSubcategoryName}" -> "${newSubcategoryName}"`);
+      const productsRef = collection(db, "products");
+      const q = query(
+        productsRef,
+        where('category', '==', categoryName),
+        where('subcategory', '==', oldSubcategoryName)
+      );
+
+      const snapshot = await getDocs(q);
+      console.log(`Found ${snapshot.size} products to update.`);
+
+      const updatePromises = snapshot.docs.map(doc =>
+        updateDoc(doc.ref, {
+          subcategory: newSubcategoryName,
+          updatedAt: new Date().toISOString()
+        })
+      );
+
+      await Promise.all(updatePromises);
+      return snapshot.size;
+    } catch (error) {
+      console.error("Error updating product subcategories:", error);
+      throw error;
+    }
   }
 };

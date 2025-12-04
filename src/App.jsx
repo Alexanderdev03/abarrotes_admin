@@ -4,7 +4,7 @@ import { LoginModal } from './components/LoginModal';
 import { Toast } from './components/Toast';
 
 // Lazy loaded components
-const AdminRouter = React.lazy(() => import('./components/admin/AdminRouter').then(module => ({ default: module.AdminRouter })));
+const AdminRouter = React.lazy(() => import('./components/AdminRouter').then(module => ({ default: module.AdminRouter })));
 
 import { AuthProvider, useAuth } from './context/auth.jsx';
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, ChevronRight, FolderPlus, List } from 'lucide-react';
-import { ProductService } from '../../services/products';
-import { ConfirmationModal } from '../ConfirmationModal';
+import { ProductService } from '../services/products';
+import { ConfirmationModal } from './common/ConfirmationModal';
 
 export function AdminCategories() {
     const [categories, setCategories] = useState([]);
@@ -38,10 +38,20 @@ export function AdminCategories() {
         c.subcategories?.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const handleSave = async (categoryData) => {
+    const handleSave = async (categoryData, renames = []) => {
         try {
             if (editingCategory) {
                 await ProductService.updateCategory(String(editingCategory.id), categoryData);
+
+                // Process renames if any
+                if (renames.length > 0) {
+                    console.log("Processing subcategory renames:", renames);
+                    const renamePromises = renames.map(rename =>
+                        ProductService.updateProductSubcategory(categoryData.name, rename.oldName, rename.newName)
+                    );
+                    await Promise.all(renamePromises);
+                    alert(`Categoría actualizada y ${renames.length} subcategoría(s) renombrada(s) en los productos.`);
+                }
             } else {
                 await ProductService.addCategory(categoryData);
             }
@@ -320,16 +330,30 @@ function CategoryForm({ category, onClose, onSave, checkSubcategoryUsage }) {
     const [formData, setFormData] = useState({
         name: '',
         color: '#e3f2fd',
-        subcategories: []
+        subcategories: [] // Array of { id: string, name: string, isNew: boolean, originalName: string | null }
     });
     const [newSubcategory, setNewSubcategory] = useState('');
+    const [editingSubIndex, setEditingSubIndex] = useState(null);
+    const [editSubValue, setEditSubValue] = useState('');
 
     useEffect(() => {
         if (category) {
             setFormData({
                 name: category.name || '',
                 color: category.color || '#e3f2fd',
-                subcategories: category.subcategories || []
+                // Map existing subcategories to objects
+                subcategories: (category.subcategories || []).map((sub, idx) => ({
+                    id: `existing-${idx}`,
+                    name: sub,
+                    isNew: false,
+                    originalName: sub
+                }))
+            });
+        } else {
+            setFormData({
+                name: '',
+                color: '#e3f2fd',
+                subcategories: []
             });
         }
     }, [category]);
@@ -340,9 +364,26 @@ function CategoryForm({ category, onClose, onSave, checkSubcategoryUsage }) {
         e.preventDefault();
         e.stopPropagation();
         setIsSaving(true);
-        console.log("Saving category data:", formData);
+
+        // Extract plain strings for the DB
+        const plainSubcategories = formData.subcategories.map(s => s.name);
+
+        // Identify renames: existing items where name changed
+        const renames = formData.subcategories
+            .filter(s => !s.isNew && s.originalName && s.name !== s.originalName)
+            .map(s => ({ oldName: s.originalName, newName: s.name }));
+
+        const dataToSave = {
+            name: formData.name,
+            color: formData.color,
+            subcategories: plainSubcategories
+        };
+
+        console.log("Saving category data:", dataToSave);
+        console.log("Renames detected:", renames);
+
         try {
-            await onSave(formData);
+            await onSave(dataToSave, renames);
         } catch (error) {
             console.error("Error in handleSubmit:", error);
             alert("Error al guardar desde el formulario.");
@@ -355,7 +396,15 @@ function CategoryForm({ category, onClose, onSave, checkSubcategoryUsage }) {
         if (newSubcategory.trim()) {
             setFormData({
                 ...formData,
-                subcategories: [...formData.subcategories, newSubcategory.trim()]
+                subcategories: [
+                    ...formData.subcategories,
+                    {
+                        id: `new-${Date.now()}`,
+                        name: newSubcategory.trim(),
+                        isNew: true,
+                        originalName: null
+                    }
+                ]
             });
             setNewSubcategory('');
         }
@@ -364,12 +413,13 @@ function CategoryForm({ category, onClose, onSave, checkSubcategoryUsage }) {
     const removeSubcategory = async (index) => {
         const subToRemove = formData.subcategories[index];
 
-        // Only check usage if we are editing an existing category and the subcategory was already there
-        if (category && category.subcategories && category.subcategories.includes(subToRemove)) {
+        // Only check usage if it's an existing subcategory (not new)
+        if (!subToRemove.isNew && category && category.subcategories && category.subcategories.includes(subToRemove.originalName)) {
             try {
-                const isUsed = await checkSubcategoryUsage(category.name, subToRemove);
+                // Check usage using the ORIGINAL name, as that's what's in the DB
+                const isUsed = await checkSubcategoryUsage(category.name, subToRemove.originalName);
                 if (isUsed) {
-                    alert(`No se puede eliminar la subcategoría "${subToRemove}" porque está en uso por uno o más productos. Cambia la categoría de esos productos primero.`);
+                    alert(`No se puede eliminar la subcategoría "${subToRemove.originalName}" porque está en uso por uno o más productos. Cambia la categoría de esos productos primero.`);
                     return;
                 }
             } catch (error) {
@@ -381,6 +431,23 @@ function CategoryForm({ category, onClose, onSave, checkSubcategoryUsage }) {
 
         const updated = formData.subcategories.filter((_, i) => i !== index);
         setFormData({ ...formData, subcategories: updated });
+    };
+
+    const startEditingSubcategory = (index) => {
+        setEditingSubIndex(index);
+        setEditSubValue(formData.subcategories[index].name);
+    };
+
+    const saveSubcategory = (index) => {
+        if (editSubValue.trim() !== '') {
+            const updatedSubcategories = [...formData.subcategories];
+            updatedSubcategories[index] = {
+                ...updatedSubcategories[index],
+                name: editSubValue.trim()
+            };
+            setFormData({ ...formData, subcategories: updatedSubcategories });
+        }
+        setEditingSubIndex(null);
     };
 
     return (
@@ -462,12 +529,41 @@ function CategoryForm({ category, onClose, onSave, checkSubcategoryUsage }) {
 
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                             {formData.subcategories.map((sub, idx) => (
-                                <div key={idx} style={{
+                                <div key={sub.id || idx} style={{
                                     display: 'flex', alignItems: 'center', gap: '0.5rem',
                                     padding: '0.5rem 0.75rem', backgroundColor: '#f3f4f6',
                                     borderRadius: '999px', border: '1px solid #e5e7eb'
                                 }}>
-                                    <span style={{ fontSize: '0.9rem' }}>{sub}</span>
+                                    {editingSubIndex === idx ? (
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={editSubValue}
+                                            onChange={(e) => setEditSubValue(e.target.value)}
+                                            onBlur={() => saveSubcategory(idx)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    saveSubcategory(idx);
+                                                } else if (e.key === 'Escape') {
+                                                    setEditingSubIndex(null);
+                                                }
+                                            }}
+                                            style={{
+                                                border: 'none', background: 'transparent', outline: 'none',
+                                                fontSize: '0.9rem', width: `${Math.max(sub.name.length, 10)}ch`,
+                                                minWidth: '60px', color: '#374151'
+                                            }}
+                                        />
+                                    ) : (
+                                        <span
+                                            onClick={() => startEditingSubcategory(idx)}
+                                            style={{ fontSize: '0.9rem', cursor: 'text' }}
+                                            title="Click para editar"
+                                        >
+                                            {sub.name}
+                                        </span>
+                                    )}
                                     <button
                                         type="button"
                                         onClick={() => removeSubcategory(idx)}
@@ -507,3 +603,4 @@ function CategoryForm({ category, onClose, onSave, checkSubcategoryUsage }) {
         </div >
     );
 }
+

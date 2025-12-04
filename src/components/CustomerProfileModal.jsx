@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, User, ShoppingBag, Calendar, DollarSign, Award, Package, Save, Trash2, Edit2 } from 'lucide-react';
-import { UserService } from '../../services/users';
+import { UserService } from '../services/users';
 
 export function CustomerProfileModal({ customer, onClose, orderHistory = [], onUpdate }) {
     const [isEditingWallet, setIsEditingWallet] = useState(false);
@@ -242,3 +242,4 @@ export function CustomerProfileModal({ customer, onClose, orderHistory = [], onU
         </div>
     );
 }
+
